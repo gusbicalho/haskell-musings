@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE DataKinds, TypeFamilies, TypeOperators, UndecidableInstances #-}
 
 module TypeLevel.Set (
   ToSet, Add, Delete, Union, Difference

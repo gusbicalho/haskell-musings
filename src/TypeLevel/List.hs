@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE DataKinds, TypeFamilies, TypeOperators, UndecidableInstances #-}
 
 module TypeLevel.List (
   Sort, InsertSorted, type (++), Nub, Has, DeleteOne
