@@ -1,7 +1,7 @@
-{-# LANGUAGE DataKinds, TypeFamilies, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE DataKinds, PolyKinds, TypeFamilies, TypeOperators, UndecidableInstances #-}
 
 module TypeLevel.List (
-  Sort, InsertSorted, type (++), Nub, Has, DeleteOne
+  Cmp, CmpName, Sort, InsertSorted, type (++), Nub, Has, DeleteOne
   ) where
 
   import GHC.TypeLits
@@ -9,21 +9,30 @@ module TypeLevel.List (
   import Data.Type.Bool
   import TypeLevel.Reflection (TypeName)
 
-  type family CmpName a b :: Ordering where
-    CmpName a b = CmpSymbol (TypeName a) (TypeName b)
+  type family Cmp token a b :: Ordering
+
+  data CmpName
+  type instance Cmp CmpName a b = CmpSymbol (TypeName a) (TypeName b)
 
   -- insertion sort from https://kseo.github.io/posts/2017-01-30-type-level-insertion-sort.html
+  -- using the approach from https://stackoverflow.com/a/50494615 to parametrization
+  type family SortBy cmp xs where
+    SortBy _   '[] = '[]
+    SortBy cmp (x ': xs) = InsertSortedBy cmp x (Sort xs)
+
+  type family InsertSortedBy cmp (x :: *) (xs :: [*]) where
+    InsertSortedBy _   x '[]       = x ': '[]
+    InsertSortedBy cmp x (y ': ys) = InsertSorted' cmp (Cmp cmp x y) x y ys
+
+  type family InsertSorted' cmp b x y ys where
+    InsertSorted' _   'LT  x y ys = x ': (y ': ys)
+    InsertSorted' cmp _    x y ys = y ': InsertSortedBy cmp x ys
+
   type family Sort xs where
-    Sort '[] = '[]
-    Sort (x ': xs) = InsertSorted x (Sort xs)
+    Sort xs = SortBy CmpName xs
 
-  type family InsertSorted x xs where
-    InsertSorted x '[] = x ': '[]
-    InsertSorted x (y ': ys) = InsertSorted' (CmpName x y) x y ys
-
-  type family InsertSorted' b x y ys where
-    InsertSorted' 'LT  x y ys = x ': (y ': ys)
-    InsertSorted' _    x y ys = y ': InsertSorted x ys
+  type family InsertSorted (x :: *) (xs :: [*]) where
+    InsertSorted x xs = InsertSortedBy CmpName x xs
 
   type family (++) as bs where
     '[] ++ bs = bs
