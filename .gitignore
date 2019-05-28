@@ -1,5 +1,5 @@
 .stack-work/
-playground.cabal
+haskell-musings.cabal
 *.hi
 *.o
 scratch.*

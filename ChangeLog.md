@@ -1,3 +1,3 @@
-# Changelog for playground
+# Changelog for haskell-musings
 
 ## Unreleased changes
