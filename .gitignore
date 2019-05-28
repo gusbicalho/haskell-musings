@@ -2,4 +2,5 @@
 playground.cabal
 *.hi
 *.o
+scratch.*
 *~
