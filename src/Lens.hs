@@ -15,7 +15,7 @@ instance Functor (Const a) where
 instance Monoid a => Applicative (Const a) where
   pure v = Const mempty
   (Const a1) <*> (Const a2) = Const $ a1 `mappend` a2
-  
+
 getConst :: Const a v -> a
 getConst (Const a) = a
 
