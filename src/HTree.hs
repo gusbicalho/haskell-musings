@@ -20,7 +20,7 @@ module HTree where
   data HTree (treeT :: RoseTree *) where
     HT :: a -> HTreeList ts -> HTree ('R a ts)
 
-  instance (Eq a) => Eq (HTree (R a '[])) where
+  instance (Eq a) => Eq (HTree ('R a '[])) where
     (HT a HNil) == (HT b HNil) = a == b
 
   instance (Eq (HTreeList '[])) where
@@ -29,12 +29,12 @@ module HTree where
   instance (Eq (HTree t), Eq (HTreeList ts)) => (Eq (HTreeList (t ': ts))) where
     (t :>: ts) == (u :>: us) = t == u && ts == us
 
-  instance (Eq a, Eq (HTreeList (x ': xs))) => Eq (HTree (R a (x ': xs))) where
+  instance (Eq a, Eq (HTreeList (x ': xs))) => Eq (HTree ('R a (x ': xs))) where
     (HT a as) == (HT b bs) = a == b && as == bs
 
   -- Show
 
-  instance (Show a) => Show (HTree (R a '[])) where
+  instance (Show a) => Show (HTree ('R a '[])) where
     showsPrec d (HT a HNil) = showParen (d > appPrec) $
         showString "HT " .
         showsPrec (appPrec + 1) a . showString " HNil"
@@ -54,7 +54,7 @@ module HTree where
         showsPrec (upPrec + 1) ts
       where upPrec = 3
 
-  instance (Show a, Show (HTreeList (x ': xs))) => Show (HTree (R a (x ': xs))) where
+  instance (Show a, Show (HTreeList (x ': xs))) => Show (HTree ('R a (x ': xs))) where
     showsPrec d (HT a children) = showParen (d > appPrec) $
         showString "HT " .
         showsPrec (appPrec + 1) a . showString " " .
@@ -80,7 +80,7 @@ HT "xyz" (HT (X 1) HNil :>: (HT (Y 2) HNil :>: (HT (Z 3) HNil >.)))
 HT "meta" (HT "xyz" (HT (X 1) HNil :>: (HT (Y 2) HNil :>: (HT (Z 3) HNil >.))) :>: (HT "xyz" (HT (X 1) HNil :>: (HT (Y 2) HNil :>: (HT (Z 3) HNil >.))) >.))
 False
 <BLANKLINE>
-<interactive>:5140:9-15: error:
+<interactive>:2747:9: error:
     • Couldn't match type ‘[Char]’ with ‘X’
       Expected type: HTree ('R [Char] '[ 'R X '[], 'R Y '[], 'R Z '[]])
         Actual type: HTree

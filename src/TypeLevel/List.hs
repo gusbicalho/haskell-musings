@@ -5,7 +5,6 @@ module TypeLevel.List (
   ) where
 
   import GHC.TypeLits
-  import GHC.Generics
   import Data.Type.Bool
   import TypeLevel.Reflection (TypeName)
 
@@ -45,8 +44,8 @@ module TypeLevel.List (
     Nub (x : xs)     = x ': Nub xs
 
   type family Has a bs where
-    Has a '[]     = False
-    Has a (a ': bs) = True
+    Has a '[]       = 'False
+    Has a (a ': bs) = 'True
     Has a (b ': bs) = Has a bs
 
   type family DeleteOne a bs where

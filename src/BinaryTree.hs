@@ -13,6 +13,7 @@ module BinaryTree where
   la |- r = la r
   infixl 2 |-
 
+  leaf :: a -> Tree a
   leaf a = T a L L
 
 {-

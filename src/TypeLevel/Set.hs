@@ -9,14 +9,8 @@ module TypeLevel.Set (
   type family Add' a bs where
     Add' a bs = InsertSorted a (DeleteOne a bs)
 
-  -- Nub only deletes sequences of duplicates
-  type family Nub' as where
-    Nub'    '[]       = '[]
-    Nub' (x : x : xs) = Nub' (x : xs)
-    Nub' (x : xs)     = x : Nub' xs
-
   type family Setlike as where
-    Setlike as = Nub' (Sort as)
+    Setlike as = Nub (Sort as)
 
   type family Union' as bs where
     Union' as bs = Setlike (as ++ bs)

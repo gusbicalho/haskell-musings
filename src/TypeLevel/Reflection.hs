@@ -6,7 +6,6 @@ module TypeLevel.Reflection (
 
   import GHC.TypeLits
   import GHC.Generics
-  import Data.Type.Bool
 
   -- Type -> Symbol
   -- from http://www.mchaver.com/posts/2017-12-12-type-name-to-string.html

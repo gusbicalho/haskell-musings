@@ -6,14 +6,11 @@
 
 module Lens where
 
-import Data.Char
-import Data.Type.Bool
-
 newtype Const a v = Const a deriving (Eq, Show)
 instance Functor (Const a) where
   fmap _ (Const a) = Const a
 instance Monoid a => Applicative (Const a) where
-  pure v = Const mempty
+  pure _ = Const mempty
   (Const a1) <*> (Const a2) = Const $ a1 `mappend` a2
 
 getConst :: Const a v -> a
@@ -30,14 +27,17 @@ type Lens s a = forall f. Functor f => (a -> f a) -> s -> f s
 data LensR s a = LensR { viewR :: s -> a
                        , overR :: (a -> a) -> s -> s }
 
--- over :: Lens s a -> (a -> a) -> s -> s
+over :: ((a1 -> Identity a2) -> a3 -> Identity c) -> (a1 -> a2) -> a3 -> c
 over ln f = runIdentity . ln (Identity . f)
 
--- set :: Lens s a -> s -> a -> s
+set :: ((b -> Identity a1) -> a2 -> Identity c) -> a2 -> a1 -> c
 set ln s a = over ln (const a) s
+
+(.~) :: ((b -> Identity a1) -> a2 -> Identity c) -> a2 -> a1 -> c
 (.~) = set
 infixr 3 .~
 
+view :: ((a1 -> Const a1 v1) -> a2 -> Const c v2) -> a2 -> c
 view ln = getConst . ln Const
 
 lensToLensR :: Lens s a -> LensR s a
@@ -84,14 +84,17 @@ data Address = Address { _street :: String
                        }
                        deriving (Eq, Show)
 
+name :: Lens Person String
 name xform s =
   (\a -> s { _name = a })
   <$> xform (_name s)
 
+address :: Lens Person Address
 address xform s =
   (\a -> s { _address = a })
   <$> xform (_address s)
 
+street :: Lens Address String
 street xform s =
   (\a -> s { _street = a })
   <$> xform (_street s)
@@ -112,7 +115,8 @@ nameAndStreet xform p =
 nameAndStreet2 :: Traversal Person String
 nameAndStreet2 = both name (address.street)
 
-someone = (Person "Jack" (Address "road block"))
+someone :: Person
+someone = Person "Jack" (Address "road block")
 
 -- >>> view name someone
 -- >>> view address someone
@@ -128,6 +132,7 @@ someone = (Person "Jack" (Address "road block"))
 --
 
 {-
+>>> import Data.Char
 >>> someone
 >>> name .~ someone $ "Jane"
 >>> address . street .~ someone $ "Baker Street"
