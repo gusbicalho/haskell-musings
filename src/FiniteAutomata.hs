@@ -3,6 +3,7 @@
   FlexibleContexts, FlexibleInstances, FunctionalDependencies, MultiParamTypeClasses,
   RankNTypes
 #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module FiniteAutomata where
 
   type Transition s = s -> [s]
@@ -35,17 +36,17 @@ module FiniteAutomata where
   data State = Initial | Second | Third deriving (Eq, Show)
   data Input = A | B | C deriving (Eq, Show)
 
-  table = [(Initial, A, Initial)
-          ,(Initial, B, Second)
-          ,(Initial, B, Third)
-          ,(Initial, C, Third)
-          ,(Second,  A, Second)
-          ,(Second,  B, Second)
-          ,(Second,  C, Initial)
-          ,(Second,  C, Third)
-          ,(Third,   C, Third)
-          ]
-  tt = transitions table
+  table' = [(Initial, A, Initial)
+           ,(Initial, B, Second)
+           ,(Initial, B, Third)
+           ,(Initial, C, Third)
+           ,(Second,  A, Second)
+           ,(Second,  B, Second)
+           ,(Second,  C, Initial)
+           ,(Second,  C, Third)
+           ,(Third,   C, Third)
+           ]
+  tt' = transitions table'
 
   a = foldl (-:-) dead [(Initial, [Initial])
                        ,(Second,  [Second])]
@@ -61,9 +62,9 @@ module FiniteAutomata where
 
   tests = [ [Initial] >>= a >>= b >>= a >>= c >>= c
           , foldl (>>=) [Initial] [a, b, a, c, c]
-          , [Initial] >>= tt A >>= tt B >>= tt A >>= tt C >>= tt C
-          , foldl (>>=) [Initial] $ map tt [A, B, A, C, C]
-          , process table [Initial] [A, B, A, C, C]
+          , [Initial] >>= tt' A >>= tt' B >>= tt' A >>= tt' C >>= tt' C
+          , foldl (>>=) [Initial] $ map tt' [A, B, A, C, C]
+          , process table' [Initial] [A, B, A, C, C]
           ]
   -- >>> all ([Third,Third] ==) tests
   -- True

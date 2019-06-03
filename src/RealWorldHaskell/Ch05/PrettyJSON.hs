@@ -5,7 +5,7 @@ module RealWorldHaskell.Ch05.PrettyJSON
 
 import RealWorldHaskell.Ch05.SimpleJSON (JValue(..))
 import RealWorldHaskell.Ch05.Prettify ( Doc, char, double, fsep, hcat
-                                      , punctuate, text, compact, pretty)
+                                      , punctuate, text)
 import Data.Maybe (mapMaybe)
 import Data.Bits
 import Data.Char (ord)
