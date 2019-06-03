@@ -21,6 +21,10 @@ description:         Please see the README on GitHub at <https://github.com/gusb
 
 dependencies:
 - base >= 4.7 && < 5
+- bytestring
+- regex-posix
+- filepath
+- directory
 
 library:
   source-dirs: src
