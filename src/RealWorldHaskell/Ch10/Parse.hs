@@ -9,9 +9,10 @@ module RealWorldHaskell.Ch10.Parse
   , parseAll
   , Parse()
   , identity
+  , parseN
+  , parseByte
   ) where
 
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import Data.Int ( Int64 )
 import Data.Word ( Word8 )

@@ -26,6 +26,8 @@ dependencies:
 - filepath
 - directory
 - time
+- array
+- containers
 
 library:
   source-dirs: src
