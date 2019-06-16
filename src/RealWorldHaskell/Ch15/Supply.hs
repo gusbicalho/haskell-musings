@@ -1,11 +1,31 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module RealWorldHaskell.Ch15.Supply
   ( Supply
   , runSupply
   , next
   ) where
 
-import Control.Monad(ap)
+import Control.Monad.State (State, get, put, runState)
 
+newtype Supply s a = Sup (State [s] a)
+  deriving (Functor, Applicative, Monad)
+
+runSupply :: Supply s a -> [s] -> (a, [s])
+runSupply (Sup s) = runState s
+
+next :: Supply s (Maybe s)
+next = Sup $ do
+  xs <- get
+  case xs of
+    []        ->            return Nothing
+    (x : xs') -> put xs' >> return (Just x)
+
+-- >>> runSupply ((fmap Data.Char.toUpper) <$> next) "qwertyuiop"
+-- (Just 'Q',"wertyuiop")
+--
+
+{-
+--Handmade version
 newtype Supply s a = Supply ([s] -> (a, [s]))
 
 runSupply :: Supply s a -> [s] -> (a, [s])
@@ -29,7 +49,4 @@ next :: Supply s (Maybe s)
 next = Supply next'
   where next' []     = (Nothing, [])
         next' (x:xs) = (Just x,  xs)
-
--- >>> runSupply (fmap (fmap Data.Char.toUpper) next) "qwertyuiop"
--- (Just 'Q',"wertyuiop")
---
+-}

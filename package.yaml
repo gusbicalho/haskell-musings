@@ -28,6 +28,8 @@ dependencies:
 - time
 - array
 - containers
+- mtl
+- random
 
 library:
   source-dirs: src
