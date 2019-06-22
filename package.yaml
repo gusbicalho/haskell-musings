@@ -31,6 +31,10 @@ dependencies:
 - mtl
 - random
 - parsec
+- time
+- unix
+- HDBC
+- HDBC-sqlite3
 
 library:
   source-dirs: src
