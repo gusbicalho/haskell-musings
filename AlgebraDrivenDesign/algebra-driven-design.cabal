@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 11045ee14f5fca2cf5e25edfe802bab81fdfd0f0855630937a896c25a4ea6363
+-- hash: e4d482fe096a547292a576412df303500feb7cbee5210c1e90c85a515d45a56d
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -15,7 +15,7 @@ build-type:     Simple
 
 library
   exposed-modules:
-      ADD.Games.Ex01
+      ADD.Games.Intro
   other-modules:
       Paths_algebra_driven_design
   hs-source-dirs:
