@@ -1,0 +1,100 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: d63d43480eb174c5747a55a00b7f4e8c420f91b615df368f017e4b721c8709ed
+
+name:           haskell-musings
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/gusbicalho/haskell-musings#readme>
+homepage:       https://github.com/gusbicalho/haskell-musings#readme
+bug-reports:    https://github.com/gusbicalho/haskell-musings/issues
+author:         Gustavo Bicalho
+maintainer:     gusbicalho@gmail.com
+copyright:      2019 Gustavo Bicalho
+license:        BSD3
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/gusbicalho/haskell-musings
+
+library
+  exposed-modules:
+      BinaryTree
+      FiniteAutomata
+      HTree
+      Lens
+      RealWorldHaskell.Ch05.Prettify
+      RealWorldHaskell.Ch05.PrettyJSON
+      RealWorldHaskell.Ch05.PutJSON
+      RealWorldHaskell.Ch05.SimpleJSON
+      RealWorldHaskell.Ch08.Glob
+      RealWorldHaskell.Ch08.GlobFile
+      RealWorldHaskell.Ch09.ControlledTraversal
+      RealWorldHaskell.Ch09.FoldDir
+      RealWorldHaskell.Ch09.RecursiveContents
+      RealWorldHaskell.Ch10.Parse
+      RealWorldHaskell.Ch10.PNM
+      RealWorldHaskell.Ch12.Barcode
+      RealWorldHaskell.Ch15.MonadHandle
+      RealWorldHaskell.Ch15.MovieReview
+      RealWorldHaskell.Ch15.SafeHello
+      RealWorldHaskell.Ch15.Supply
+      RealWorldHaskell.Ch15.SupplyClass
+      RealWorldHaskell.Ch15.SupplyConst
+      RealWorldHaskell.Ch15.WriterIO
+      RealWorldHaskell.Ch16.CSV
+      RealWorldHaskell.Ch16.FormParse
+      RealWorldHaskell.Ch16.JSONParse
+      TypeLevel.List
+      TypeLevel.Reflection
+      TypeLevel.Set
+  other-modules:
+      Paths_haskell_musings
+  hs-source-dirs:
+      src
+  build-depends:
+      HDBC
+    , HDBC-sqlite3
+    , array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , mtl
+    , parsec
+    , random
+    , regex-posix
+    , time
+    , unix
+  default-language: Haskell2010
+
+test-suite haskell-musings-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_haskell_musings
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HDBC
+    , HDBC-sqlite3
+    , array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , haskell-musings
+    , mtl
+    , parsec
+    , random
+    , regex-posix
+    , time
+    , unix
+  default-language: Haskell2010

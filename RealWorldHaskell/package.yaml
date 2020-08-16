@@ -6,10 +6,6 @@ author:              "Gustavo Bicalho"
 maintainer:          "gusbicalho@gmail.com"
 copyright:           "2019 Gustavo Bicalho"
 
-extra-source-files:
-- README.md
-- ChangeLog.md
-
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
 # category:            Web
@@ -38,18 +34,6 @@ dependencies:
 
 library:
   source-dirs: src
-
-executables:
-  haskell-musings-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -Wall
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - haskell-musings
 
 tests:
   haskell-musings-test:
