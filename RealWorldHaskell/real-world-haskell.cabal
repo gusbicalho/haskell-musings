@@ -4,22 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 473ebb44935d538baf020fd87b7e2230b1ba59c2325e6a870accf538c77f6882
+-- hash: d7e7a684adb05d31c106f4679bd7d79b9866f158bffa9d4f89e43b353b011493
 
-name:           haskell-musings
+name:           real-world-haskell
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/gusbicalho/haskell-musings#readme>
-homepage:       https://github.com/gusbicalho/haskell-musings#readme
-bug-reports:    https://github.com/gusbicalho/haskell-musings/issues
 author:         Gustavo Bicalho
-maintainer:     gusbicalho@gmail.com
-copyright:      2019 Gustavo Bicalho
-license:        BSD3
+maintainer:     Gustavo Bicalho
 build-type:     Simple
-
-source-repository head
-  type: git
-  location: https://github.com/gusbicalho/haskell-musings
 
 library
   exposed-modules:
@@ -46,13 +37,11 @@ library
       RealWorldHaskell.Ch16.FormParse
       RealWorldHaskell.Ch16.JSONParse
   other-modules:
-      Paths_haskell_musings
+      Paths_real_world_haskell
   hs-source-dirs:
       src
   build-depends:
-      HDBC
-    , HDBC-sqlite3
-    , array
+      array
     , base >=4.7 && <5
     , bytestring
     , containers
@@ -60,34 +49,6 @@ library
     , filepath
     , mtl
     , parsec
-    , random
     , regex-posix
     , time
-    , unix
-  default-language: Haskell2010
-
-test-suite haskell-musings-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      Paths_haskell_musings
-  hs-source-dirs:
-      test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      HDBC
-    , HDBC-sqlite3
-    , array
-    , base >=4.7 && <5
-    , bytestring
-    , containers
-    , directory
-    , filepath
-    , haskell-musings
-    , mtl
-    , parsec
-    , random
-    , regex-posix
-    , time
-    , unix
   default-language: Haskell2010

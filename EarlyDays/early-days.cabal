@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2950abdb33bac52d6e5795bed6b577271df7aeb612b044f9babbda85c8b0c1f9
+-- hash: 8b725c4b41dce5e722a7aa6aa6920e68dc663fed9890a73699dbdbd0578c662c
 
 name:           early-days
 version:        0.1.0.0
@@ -26,18 +26,5 @@ library
   hs-source-dirs:
       src
   build-depends:
-      HDBC
-    , HDBC-sqlite3
-    , array
-    , base >=4.7 && <5
-    , bytestring
-    , containers
-    , directory
-    , filepath
-    , mtl
-    , parsec
-    , random
-    , regex-posix
-    , time
-    , unix
+      base >=4.7 && <5
   default-language: Haskell2010
