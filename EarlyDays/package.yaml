@@ -1,0 +1,23 @@
+name:                early-days
+version:             0.1.0.0
+author:              "Gustavo Bicalho"
+
+dependencies:
+- base >= 4.7 && < 5
+- bytestring
+- regex-posix
+- filepath
+- directory
+- time
+- array
+- containers
+- mtl
+- random
+- parsec
+- time
+- unix
+- HDBC
+- HDBC-sqlite3
+
+library:
+  source-dirs: src

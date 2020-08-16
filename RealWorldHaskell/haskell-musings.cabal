@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d63d43480eb174c5747a55a00b7f4e8c420f91b615df368f017e4b721c8709ed
+-- hash: 473ebb44935d538baf020fd87b7e2230b1ba59c2325e6a870accf538c77f6882
 
 name:           haskell-musings
 version:        0.1.0.0
@@ -23,10 +23,6 @@ source-repository head
 
 library
   exposed-modules:
-      BinaryTree
-      FiniteAutomata
-      HTree
-      Lens
       RealWorldHaskell.Ch05.Prettify
       RealWorldHaskell.Ch05.PrettyJSON
       RealWorldHaskell.Ch05.PutJSON
@@ -49,9 +45,6 @@ library
       RealWorldHaskell.Ch16.CSV
       RealWorldHaskell.Ch16.FormParse
       RealWorldHaskell.Ch16.JSONParse
-      TypeLevel.List
-      TypeLevel.Reflection
-      TypeLevel.Set
   other-modules:
       Paths_haskell_musings
   hs-source-dirs:
