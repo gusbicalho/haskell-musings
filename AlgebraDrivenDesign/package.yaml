@@ -1,0 +1,11 @@
+name:                algebra-driven-design
+version:             0.1.0.0
+author:              "Gustavo Bicalho"
+
+description: Exercises from the book "Algebra Driven Design"
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src

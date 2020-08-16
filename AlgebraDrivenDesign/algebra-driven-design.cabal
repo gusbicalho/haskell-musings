@@ -1,0 +1,25 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 11045ee14f5fca2cf5e25edfe802bab81fdfd0f0855630937a896c25a4ea6363
+
+name:           algebra-driven-design
+version:        0.1.0.0
+description:    Exercises from the book "Algebra Driven Design"
+author:         Gustavo Bicalho
+maintainer:     Gustavo Bicalho
+build-type:     Simple
+
+library
+  exposed-modules:
+      ADD.Games.Ex01
+  other-modules:
+      Paths_algebra_driven_design
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
