@@ -4,5 +4,6 @@
     "files.insertFinalNewline": true,
     "editor.autoIndent": false,
     "files.trimTrailingWhitespace": true,
-    "files.trimFinalNewlines": true
+    "files.trimFinalNewlines": true,
+    "haskell.indentationRules.enabled": false
 }
