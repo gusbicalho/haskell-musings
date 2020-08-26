@@ -1,10 +1,13 @@
 module ADD.Games.FirstModel.Result
-  ( Result (Victory, Defeat)
-  , victory, defeat
-  ) where
+  ( Result (Victory, Defeat),
+    victory,
+    defeat,
+  )
+where
 
 import Data.Data (Data)
 import GHC.Generics (Generic)
+
 data Result
   = UnsafeVictory
   | UnsafeDefeat

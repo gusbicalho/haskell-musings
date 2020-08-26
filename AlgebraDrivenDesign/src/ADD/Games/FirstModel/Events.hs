@@ -1,12 +1,15 @@
 module ADD.Games.FirstModel.Events
-  ( Event (..)
-  , EventFilter (Always, Never, Exactly)
-  , always, never, exactly
-  , matches
-  ) where
+  ( Event (..),
+    EventFilter (Always, Never, Exactly),
+    always,
+    never,
+    exactly,
+    matches,
+  )
+where
 
-import Data.Word (Word8)
 import Data.Data (Data)
+import Data.Word (Word8)
 import GHC.Generics (Generic)
 
 newtype Event = Event Word8
@@ -39,6 +42,6 @@ exactly :: Word8 -> EventFilter
 exactly = UnsafeExactly
 
 matches :: EventFilter -> Event -> Bool
-matches Never  _ = False
+matches Never _ = False
 matches Always _ = True
 matches (Exactly expected) (Event event) = expected == event

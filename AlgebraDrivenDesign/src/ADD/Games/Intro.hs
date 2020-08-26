@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-all #-}
+
 module ADD.Games.Intro where
 
 {-
@@ -16,6 +17,7 @@ games: ones with multiple overlapping sub-games, any of which could be won on
 its own.
 -}
 data Scenario = S
+
 data Reward = R
 
 andThen :: Scenario -> Scenario -> Scenario
@@ -26,22 +28,22 @@ bigGame =
     completeStory "dance"
       `andS` completeStory "climb a tree"
   where
-    stories = [ ("dance", danceStory)
-              , ("climb a tree", climbTreeStory)
-              ]
+    stories =
+      [ ("dance", danceStory),
+        ("climb a tree", climbTreeStory)
+      ]
     danceStory = dance $$$ 10
-    climbTreeStory = (
-        (
-          climbTree $$$ 10
-        ) `thenS` (
-          (jumpDown $$$ 10)
-          `orS` climbDown
-          `orS` (
-            (completeStory "dance" $$$ 5)
-              `thenS` climbDown
-          )
+    climbTreeStory =
+      ( ( climbTree $$$ 10
         )
-      ) $$$ 50
+          `thenS` ( (jumpDown $$$ 10)
+                      `orS` climbDown
+                      `orS` ( (completeStory "dance" $$$ 5)
+                                `thenS` climbDown
+                            )
+                  )
+      )
+        $$$ 50
     runGameWith = undefined
     -- Combinators
     s `thenS` _ = S
@@ -58,7 +60,6 @@ bigGame =
     climbTree = S
     climbDown = S
     jumpDown = S
-
 
 {-
 Exercise:
