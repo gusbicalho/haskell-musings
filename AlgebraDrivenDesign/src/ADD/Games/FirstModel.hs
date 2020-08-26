@@ -15,26 +15,24 @@ module ADD.Games.FirstModel where
 import Data.Data (Data)
 import GHC.Generics (Generic)
 import Data.Word (Word8)
-import Control.Monad.Trans.Writer.CPS (tell, Writer)
+import Control.Monad.Trans.Writer.CPS (runWriter, tell, Writer)
 import Data.Foldable (find)
+import Data.Tuple (swap)
+import Data.List (transpose)
+import Data.Functor ((<&>))
 
 -- Result
 
 data Result
-  = UnsafeVictory
-  | UnsafeDefeat
-
-pattern Victory :: Result
-pattern Victory <- UnsafeVictory
+  = Victory
+  | Defeat
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 victory :: Result
-victory = UnsafeVictory
-
-pattern Defeat :: Result
-pattern Defeat <- UnsafeDefeat
+victory = Victory
 
 defeat :: Result
-defeat = UnsafeDefeat
+defeat = Defeat
 
 -- Event / EventFilter
 
@@ -219,3 +217,43 @@ _runGame g [] = do
   case g == g' of
     True -> pure g
     False -> _runGame g' []
+
+_toResult :: Game -> Maybe Result
+_toResult Win  = Just victory
+_toResult Lose = Just defeat
+_toResult _    = Nothing
+
+runGame :: [Event] -> Game -> ([Reward], Maybe Result)
+runGame evs g = swap
+              . runWriter
+              . fmap _toResult
+              $ _runGame g evs
+
+-- examples
+bingo :: [[Game]] -> Reward -> Game
+bingo gamesTable reward =
+  eitherG (anyFullRow gamesTable)
+          (anyFullRow $ transpose gamesTable)
+    `andThen` giveReward reward
+  where
+    anyOf games = foldr eitherG lose games
+    allOf games = foldr bothG win games
+    anyFullRow gamesTable = anyOf (fmap allOf gamesTable)
+
+bingo_game :: Game
+bingo_game = bingo slots (Reward 100)
+  where
+    slots = [0..2] <&> \x ->
+              [0..2] <&> \y ->
+                gate (exactly $ x * 10 + y) win
+
+-- >>> runGame [] bingo_game
+-- ([],Nothing)
+-- >>> runGame [Event 0, Event 1] bingo_game
+-- ([],Nothing)
+-- >>> runGame [Event 0, Event 1, Event 2] bingo_game
+-- ([],Just Victory)
+-- >>> runGame [Event 1, Event 0, Event 2] bingo_game
+-- ([],Just Victory)
+-- >>> runGame [Event 1, Event 11, Event 21] bingo_game
+-- ([],Just Victory)
