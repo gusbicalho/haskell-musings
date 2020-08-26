@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-all #-}
 module ADD.Games.Intro where
 
 {-

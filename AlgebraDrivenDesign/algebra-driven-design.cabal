@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6bc2f463b4d5cbd3a7fa1b06721c6d57be7900cbd77ebe452a5c3369ab65e272
+-- hash: 65d16956d396d3f0ad4651191df96ece26dffeb69f7778315217354aa4b87088
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -16,11 +16,17 @@ build-type:     Simple
 library
   exposed-modules:
       ADD.Games.FirstModel
+      ADD.Games.FirstModel.Events
+      ADD.Games.FirstModel.Game
+      ADD.Games.FirstModel.Result
+      ADD.Games.FirstModel.Reward
       ADD.Games.Intro
   other-modules:
       Paths_algebra_driven_design
   hs-source-dirs:
       src
+  default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
   build-depends:
       base >=4.7 && <5
     , transformers

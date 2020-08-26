@@ -10,3 +10,19 @@ dependencies:
 
 library:
   source-dirs: src
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wredundant-constraints
+- -Wno-name-shadowing
+- -foptimal-applicative-do
+
+default-extensions:
+- DeriveGeneric
+- DeriveDataTypeable
+- EmptyDataDeriving
+- DerivingStrategies
+- PatternSynonyms
