@@ -2,3 +2,5 @@ cradle:
   stack:
     - path: "./src"
       component: "algebra-driven-design:lib"
+    - path: "./test"
+      component: "algebra-driven-design:test"

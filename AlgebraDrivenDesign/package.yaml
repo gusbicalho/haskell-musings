@@ -10,6 +10,15 @@ dependencies:
 
 library:
   source-dirs: src
+tests:
+  test:
+    main: Spec.hs
+    source-dirs:
+    - test
+    - src
+    dependencies:
+    - hspec
+    - QuickCheck
 
 ghc-options:
 - -Wall
