@@ -7,30 +7,35 @@ matches _ _ = undefined
 
 always :: InputFilter
 always = undefined
+
 -- Law "matches/always"
 -- forall i.
 --   matches always i = True
 
 never :: InputFilter
 never = undefined
+
 -- Law "matches/never"
 -- forall i.
 --   matches never i = False
 
 andF :: InputFilter -> InputFilter -> InputFilter
 andF _ _ = undefined
+
 -- Law "matches/andF"
 -- forall f1 f2 i.
 --   matches (andF f1 f2) i = matches f1 i && matches f2 i
 
 orF :: InputFilter -> InputFilter -> InputFilter
 orF _ _ = undefined
+
 -- Law "matches/orF"
 -- forall f1 f2 i.
 --   matches (orF f1 f2) i = matches f1 i || matches f2 i
 
 notF :: InputFilter -> InputFilter
 notF _ = undefined
+
 -- Law "matches/notF"
 -- forall f i.
 --   matches (notF f) i = not (matches f i)
@@ -65,6 +70,7 @@ photoWithin _ _ = undefined
 
 photoAbove :: Altitude -> InputFilter
 photoAbove _ = undefined
+
 -- Law "matches/photoAbove"
 -- forall a p pic.
 --   matches (photoAbove a) (photo p pic)

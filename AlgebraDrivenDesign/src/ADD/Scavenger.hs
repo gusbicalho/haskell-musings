@@ -1,7 +1,7 @@
 module ADD.Scavenger where
 
-import ADD.Scavenger.Types
 import ADD.Scavenger.InputFilter
+import ADD.Scavenger.Types
 
 getRewards :: Challenge -> [Input] -> [Reward]
 getRewards _ _ = undefined
