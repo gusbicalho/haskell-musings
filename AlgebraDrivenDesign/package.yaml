@@ -8,6 +8,7 @@ dependencies:
 - base >= 4.7 && < 5
 - transformers
 - containers
+- multiset
 
 library:
   source-dirs: src

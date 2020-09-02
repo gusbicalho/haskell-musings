@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 423b1deb23cf3f9c87f84a877b822a97a5ba75ee4d3c1a0e46a20ee94c5602b4
+-- hash: b49c53164aa500988ea272f8b3f5c44d547ef5845d6aa60d4e333080fc67d86b
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , multiset
     , transformers
   default-language: Haskell2010
 
@@ -63,6 +64,7 @@ test-suite test
     , base >=4.7 && <5
     , containers
     , hspec
+    , multiset
     , quickspec
     , transformers
   default-language: Haskell2010

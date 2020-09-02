@@ -2,8 +2,10 @@ module ADD.Scavenger where
 
 import ADD.Scavenger.InputFilter
 import ADD.Scavenger.Types
+import Data.MultiSet (MultiSet)
+import qualified Data.MultiSet as MultiSet
 
-getRewards :: Challenge -> [Input] -> [Reward]
+getRewards :: Challenge -> [Input] -> MultiSet Reward
 getRewards _ _ = undefined
 
 completes :: Challenge -> [Input] -> Maybe [Input]
@@ -49,7 +51,7 @@ gate _ _ = undefined
 --     getRewards (gate f c) (i : is) = getRewards (gate f c) is
 -- Law "getRewards/gate empty"
 -- forall f c.
---   getRewards (gate f c) [] = []
+--   getRewards (gate f c) [] = mempty
 
 clue :: Clue -> Challenge -> Challenge
 clue _ _ = undefined
@@ -64,7 +66,7 @@ reward _ = undefined
 
 -- Law "getRewards/reward"
 -- forall r is.
---   getRewards (reward r) is = [r]
+--   getRewards (reward r) is = MultiSet.singleton r
 
 empty :: Challenge
 empty = undefined
@@ -115,9 +117,10 @@ both _ _ = undefined
 -- Law "both:associative"
 -- forall c1 c2 c3.
 --   both c1 (both c2 c3) = both (both c1 c2) c3
--- Law "both:idempotent"
--- forall c.
---   both c c = c
 -- Law "getRewards/both"
 -- forall c1 c2 is.
 --   getRewards (both c1 c2) is = getRewards c1 is <> getRewards c2 is
+-- Law "both/andThen/reward"
+-- forall r c1 c2.
+--   both (andThen (reward r) c1) c2
+--   = andThen (reward r) (both c1 c2)
