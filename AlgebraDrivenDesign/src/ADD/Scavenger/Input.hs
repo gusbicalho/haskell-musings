@@ -2,6 +2,9 @@ module ADD.Scavenger.Input where
 
 import ADD.Scavenger.Types
 
+time :: Time -> Input
+time _ = undefined
+
 photo :: Point -> Photo -> Input
 photo _ _ = undefined
 

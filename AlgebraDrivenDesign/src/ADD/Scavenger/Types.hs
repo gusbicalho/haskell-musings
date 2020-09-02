@@ -6,7 +6,7 @@ data Input
 
 data InputFilter
 
-data Reward
+data Reward deriving (Eq, Ord)
 
 data Clue
 
@@ -17,3 +17,5 @@ data Distance
 data Altitude
 
 data Photo
+
+data Time
