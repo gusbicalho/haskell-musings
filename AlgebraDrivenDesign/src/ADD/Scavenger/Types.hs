@@ -10,6 +10,8 @@ data Reward deriving (Eq, Ord)
 
 data Clue
 
+data ClueState
+
 data Point
 
 data Distance

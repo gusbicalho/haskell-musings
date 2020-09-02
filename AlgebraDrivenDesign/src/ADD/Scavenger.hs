@@ -64,6 +64,13 @@ gate _ _ = undefined
 clue :: Clue -> Challenge -> Challenge
 clue _ _ = undefined
 
+-- Law "clue/noClue"
+-- forall c.
+--   clue noClue c = c
+-- Law "clue/sub"
+-- forall c k1 k2.
+--   clue (sub k1 k2) c = clue k1 (clue k2 c)
+
 reward :: Reward -> Challenge
 reward _ = undefined
 
