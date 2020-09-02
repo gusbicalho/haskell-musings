@@ -2,6 +2,7 @@ module ADD.Scavenger where
 
 data Challenge
 data Input
+data InputFilter
 data Reward
 data Clue
 data Point
@@ -12,8 +13,30 @@ data Photo
 getRewards :: Challenge -> [Input] -> [Reward]
 getRewards _ _ = undefined
 
+matches :: InputFilter -> Input -> Bool
+matches _ _ = undefined
+
+gate :: InputFilter -> Challenge -> Challenge
+gate _ _ = undefined
+
+-- Law "getRewards/gate"
+-- forall f c i is.
+--   matches f i =>
+--     getRewards (gate f c) (i : is) = getRewards c is
+-- Law "getRewards/gate unmatched"
+-- forall f c i is.
+--   not(matches f i) =>
+--     getRewards (gate f c) (i : is) = getRewards (gate f c) is
+-- Law "getRewards/gate empty"
+-- forall f c.
+--   getRewards (gate f c) [] = []
+
 pointOfInterest :: Clue -> Point -> Distance -> Reward -> Challenge
-pointOfInterest c p d r = clue c (photoWithin p d (reward r))
+pointOfInterest c p d r = clue c (gate (photoWithin p d) (reward r))
+
+-- Law "pointOfInterest"
+-- forall c p d r.
+--   pointOfInterest c p d r = clue c (gate (photoWithin p d) (reward r))
 
 photo :: Point -> Photo -> Input
 photo _ _ = undefined
@@ -42,37 +65,29 @@ reward _ = undefined
 -- forall r is.
 --   getRewards (reward r) is = [r]
 
-photoWithin :: Point -> Distance -> Challenge -> Challenge
-photoWithin _ _ _ = undefined
+-- InputFilters
 
--- Law "getRewards/photoWithin"
--- forall poi p pic d c is.
---   within poi p d =>
---     getRewards
---       (photoWithin poi d c)
---       (photo p pic : is)
---     = getRewards c is
--- Law "getRewards/photoWithin not within"
--- forall poi p pic d c is.
---   not(within poi p d) =>
---     getRewards (photoWithin poi d c) (photo p pic : is)
---     = getRewards (photoWithin poi d c) is
--- Law "getRewards/photoWithin not photo"
--- forall poi d c i is.
+photoWithin :: Point -> Distance -> InputFilter
+photoWithin _ _ = undefined
+
+-- Law "matches/photoWithin"
+-- forall poi d p pic.
+--   matches (photoWithin poi d) (photo p pic)
+--   = within poi p d
+-- Law "matches/photoWithin not photo"
+-- forall poi d i.
 --   not(isPhoto i) =>
---     getRewards (photoWithin poi d c) (i : is)
---     = getRewards (photoWithin poi d c) is
+--     matches (photoWithin poi d) i
+--     = False
 
--- Law "pointOfInterest"
--- forall c p d r.
---   pointOfInterest c p d r = clue c (photoWithin p d (reward r))
-
-photoAbove :: Altitude -> Challenge -> Challenge
-photoAbove _ _ = undefined
--- Law "getRewards/photoAbove"
--- forall poi p pic d c is.
---   aboveAltitude p a =>
---     getRewards
---       (photoAbove a c)
---       (photo p pic : is)
---     = getRewards c is
+photoAbove :: Altitude -> InputFilter
+photoAbove _ = undefined
+-- Law "matches/photoAbove"
+-- forall a p pic.
+--   matches (photoAbove a) (photo p pic)
+--   = aboveAltitude p a
+-- Law "matches/photoAbove not photo"
+-- forall a i.
+--   not(isPhoto i) =>
+--     matches (photoAbove a) i
+--     = False
