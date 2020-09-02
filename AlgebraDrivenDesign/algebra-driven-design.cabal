@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 94b92e0b0f289c5e607206997454bbd0b37f2a54c37454097e5367f08c0f0a5f
+-- hash: 423b1deb23cf3f9c87f84a877b822a97a5ba75ee4d3c1a0e46a20ee94c5602b4
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -16,6 +16,9 @@ build-type:     Simple
 library
   exposed-modules:
       ADD.Scavenger
+      ADD.Scavenger.Input
+      ADD.Scavenger.InputFilter
+      ADD.Scavenger.Types
       ADD_Old.Games.FirstModel
       ADD_Old.Games.FirstModel.Events
       ADD_Old.Games.FirstModel.Game
@@ -40,6 +43,9 @@ test-suite test
   other-modules:
       ADD_Old.Games.FirstModelSpec
       ADD.Scavenger
+      ADD.Scavenger.Input
+      ADD.Scavenger.InputFilter
+      ADD.Scavenger.Types
       ADD_Old.Games.FirstModel
       ADD_Old.Games.FirstModel.Events
       ADD_Old.Games.FirstModel.Game
