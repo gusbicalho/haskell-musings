@@ -3,17 +3,17 @@ module ADD.Scavenger where
 data Challenge
 data Input
 data Reward
+data Clue
+data Point
+data Distance
+data Altitude
+data Photo
 
 getRewards :: Challenge -> [Input] -> [Reward]
 getRewards _ _ = undefined
 
-data Clue
-data Point
-data Distance
-data Photo
-
 pointOfInterest :: Clue -> Point -> Distance -> Reward -> Challenge
-pointOfInterest _ _ _ _ = undefined
+pointOfInterest c p d r = clue c (photoWithin p d (reward r))
 
 photo :: Point -> Photo -> Input
 photo _ _ = undefined
@@ -24,30 +24,55 @@ isPhoto _ = undefined
 within :: Point -> Point -> Distance -> Bool
 within _ _ _ = undefined
 
--- Law "point of interest"
--- forall c poi d r p pic is.
+aboveAltitude :: Point -> Altitude -> Bool
+aboveAltitude _ _ = undefined
+
+clue :: Clue -> Challenge -> Challenge
+clue _ _ = undefined
+
+-- Law "getRewards/clue"
+-- forall k c is.
+--   getRewards (clue k c) is
+--   = getRewards c is
+
+reward :: Reward -> Challenge
+reward _ = undefined
+
+-- Law "getRewards/reward"
+-- forall r is.
+--   getRewards (reward r) is = [r]
+
+photoWithin :: Point -> Distance -> Challenge -> Challenge
+photoWithin _ _ _ = undefined
+
+-- Law "getRewards/photoWithin"
+-- forall poi p pic d c is.
 --   within poi p d =>
 --     getRewards
---       (pointOfInterest c poi d r)
+--       (photoWithin poi d c)
 --       (photo p pic : is)
---     = [r]
+--     = getRewards c is
+-- Law "getRewards/photoWithin not within"
+-- forall poi p pic d c is.
+--   not(within poi p d) =>
+--     getRewards (photoWithin poi d c) (photo p pic : is)
+--     = getRewards (photoWithin poi d c) is
+-- Law "getRewards/photoWithin not photo"
+-- forall poi d c i is.
+--   not(isPhoto i) =>
+--     getRewards (photoWithin poi d c) (i : is)
+--     = getRewards (photoWithin poi d c) is
 
--- Law "outside point of interest"
--- forall c poi d r p pic is.
---   not (within poi p d) =>
+-- Law "pointOfInterest"
+-- forall c p d r.
+--   pointOfInterest c p d r = clue c (photoWithin p d (reward r))
+
+photoAbove :: Altitude -> Challenge -> Challenge
+photoAbove _ _ = undefined
+-- Law "getRewards/photoAbove"
+-- forall poi p pic d c is.
+--   aboveAltitude p a =>
 --     getRewards
---       (pointOfInterest c poi d r)
+--       (photoAbove a c)
 --       (photo p pic : is)
---     = getRewards
---         (pointOfInterest c poi d r)
---         is
-
--- Law "unmatching point of interest"
--- forall c poi d r p pic is.
---   not (isPhoto i) =>
---     getRewards
---       (pointOfInterest c poi d r)
---       (i : is)
---     = getRewards
---         (pointOfInterest c poi d r)
---         is
+--     = getRewards c is
