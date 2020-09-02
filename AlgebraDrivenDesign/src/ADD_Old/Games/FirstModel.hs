@@ -1,21 +1,25 @@
-module ADD.Games.FirstModel where
+{-# LANGUAGE BangPatterns #-}
 
-import ADD.Games.FirstModel.Events (Event (..), exactly, matches)
-import ADD.Games.FirstModel.Game
-import ADD.Games.FirstModel.Result (Result, defeat, victory)
-import ADD.Games.FirstModel.Reward (Reward (..))
+module ADD_Old.Games.FirstModel where
+
+import ADD_Old.Games.FirstModel.Events (Event (..), EventFilter (Exactly), matches)
+import ADD_Old.Games.FirstModel.Game
+import ADD_Old.Games.FirstModel.Result (Result (..))
+import ADD_Old.Games.FirstModel.Reward (Reward (..))
 import Control.Monad.Trans.Writer.CPS (Writer, runWriter, tell)
 import Data.Foldable (find)
 import Data.Functor ((<&>))
 import Data.List (transpose)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Tuple (swap)
 
 -- Game: observations
 
-_stepGame :: Game -> Maybe Event -> Writer [Reward] Game
+_stepGame :: Game -> Maybe Event -> Writer (Set Reward) Game
 _stepGame Win _ = pure win
 _stepGame Lose _ = pure lose
-_stepGame (GiveReward r) _ = tell [r] *> pure win
+_stepGame (GiveReward r) _ = tell (Set.singleton r) *> pure win
 _stepGame (g1 `AndThen` g2) e =
   andThen
     <$> _stepGame g1 e
@@ -42,7 +46,7 @@ _stepGame (Choose cs) (Just e)
     pure g
 _stepGame g@(Choose _) _ = pure g
 
-_runGame :: Game -> [Event] -> Writer [Reward] Game
+_runGame :: Game -> [Event] -> Writer (Set Reward) Game
 _runGame g (e : evs) = do
   g <- _stepGame g (Just e)
   _runGame g evs
@@ -53,13 +57,13 @@ _runGame g [] = do
     False -> _runGame g' []
 
 _toResult :: Game -> Maybe Result
-_toResult Win = Just victory
-_toResult Lose = Just defeat
+_toResult Win = Just Victory
+_toResult Lose = Just Defeat
 _toResult _ = Nothing
 
-runGame :: [Event] -> Game -> ([Reward], Maybe Result)
+runGame :: [Event] -> Game -> (Set Reward, Maybe Result)
 runGame evs g =
-  swap . runWriter . fmap _toResult $
+  swap . runWriter . fmap _toResult $ do
     _runGame g evs
 
 -- examples
@@ -80,7 +84,7 @@ bingo_game = bingo slots (Reward 100)
     slots =
       [0 .. 2] <&> \x ->
         [0 .. 2] <&> \y ->
-          gate (exactly $ x * 10 + y) win
+          gate (Exactly $ x * 10 + y) win
 
 -- >>> runGame [] bingo_game
 -- ([],Nothing)

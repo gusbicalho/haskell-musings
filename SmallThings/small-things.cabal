@@ -4,9 +4,9 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 94b92e0b0f289c5e607206997454bbd0b37f2a54c37454097e5367f08c0f0a5f
+-- hash: f9a5527b175ecd0a2a3d2c8d962c706cd9c7f0dcbc1c8c70d1de88e5e859d7ff
 
-name:           algebra-driven-design
+name:           small-things
 version:        0.1.0.0
 description:    Exercises from the book "Algebra Driven Design"
 author:         Gustavo Bicalho
@@ -15,22 +15,16 @@ build-type:     Simple
 
 library
   exposed-modules:
-      ADD.Scavenger
-      ADD_Old.Games.FirstModel
-      ADD_Old.Games.FirstModel.Events
-      ADD_Old.Games.FirstModel.Game
-      ADD_Old.Games.FirstModel.Result
-      ADD_Old.Games.FirstModel.Reward
-      ADD_Old.Games.Intro
+      NFold
+      NFoldUsage
   other-modules:
-      Paths_algebra_driven_design
+      Paths_small_things
   hs-source-dirs:
       src
   default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms TypeApplications
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
   build-depends:
       base >=4.7 && <5
-    , containers
     , transformers
   default-language: Haskell2010
 
@@ -38,15 +32,9 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      ADD_Old.Games.FirstModelSpec
-      ADD.Scavenger
-      ADD_Old.Games.FirstModel
-      ADD_Old.Games.FirstModel.Events
-      ADD_Old.Games.FirstModel.Game
-      ADD_Old.Games.FirstModel.Result
-      ADD_Old.Games.FirstModel.Reward
-      ADD_Old.Games.Intro
-      Paths_algebra_driven_design
+      NFold
+      NFoldUsage
+      Paths_small_things
   hs-source-dirs:
       test
       src
@@ -55,7 +43,6 @@ test-suite test
   build-depends:
       QuickCheck
     , base >=4.7 && <5
-    , containers
     , hspec
     , quickspec
     , transformers

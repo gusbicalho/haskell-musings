@@ -1,4 +1,4 @@
-module ADD.Games.FirstModel.Reward
+module ADD_Old.Games.FirstModel.Reward
   ( Reward (..),
   )
 where

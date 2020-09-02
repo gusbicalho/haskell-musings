@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-all #-}
 
-module ADD.Games.Intro where
+module ADD_Old.Games.Intro where
 
 {-
 The scenarios available in the first version of the game were linear sequences;
