@@ -1,8 +1,10 @@
 module ADD.Scavenger where
 
+import ADD.Scavenger.Clue
 import ADD.Scavenger.InputFilter
 import ADD.Scavenger.Types
 import Control.Monad (foldM)
+import Data.Map.Monoidal.Strict (MonoidalMap)
 import Data.MultiSet (MultiSet)
 
 isEmpty :: Challenge -> Bool
@@ -11,52 +13,73 @@ isEmpty _ = undefined
 isReward :: Challenge -> Bool
 isReward _ = undefined
 
-pumpChallenge :: Challenge -> [Input] -> (MultiSet Reward, Challenge)
-pumpChallenge c = foldM (flip step) c . (Nothing :) . fmap Just
+findClues :: Clue -> Challenge -> MonoidalMap Clue ClueState
+findClues _ _ = undefined
+
+type ChallengeOutput = (MonoidalMap Clue ClueState, MultiSet Reward)
+
+pumpChallenge :: Challenge -> [Input] -> (ChallengeOutput, Challenge)
+pumpChallenge c = foldM (flip $ step noClue) c . (Nothing :) . fmap Just
 
 getRewards :: Challenge -> [Input] -> MultiSet Reward
-getRewards c is = fst $ pumpChallenge c is
+getRewards c is = snd . fst $ pumpChallenge c is
 
 completes :: Challenge -> [Input] -> Bool
 completes c is = isEmpty . snd $ pumpChallenge c is
 
-step :: Maybe Input -> Challenge -> (MultiSet Reward, Challenge)
-step _ _ = (undefined, undefined)
+step :: Clue -> Maybe Input -> Challenge -> (ChallengeOutput, Challenge)
+step _ _ _ = (undefined, undefined)
 
 -- Law "step/empty"
--- forall i.
---   step i empty = pure empty
+-- forall kctx i.
+--   step kctx i empty = pure empty
 -- Law "step/reward"
--- forall i r.
---   step i (reward r) = (MultiSet.singleton r, empty)
+-- forall kctx i r.
+--   step kctx i (reward r) = ((mempty, MultiSet.singleton r), empty)
 -- Law "step/both"
--- forall i c1 c2.
---   step i (both c1 c2) = both <$> step i c1 <*> step i c2
--- Law "step/eitherC"
--- forall i c1 c2.
---   step i (eitherC c1 c2) = eitherC <$> step i c1 <*> step i c2
--- Law "step/clue"
--- forall i k c.
---   step i (clue k c) = step i c
+-- forall kctx i c1 c2.
+--   step kctx i (both c1 c2) = both <$> step kctx i c1 <*> step kctx i c2
+-- Law "step/eitherC empty"
+-- forall kctx i c1 c2 c2' z1 z2.
+--   step kctx i c1 == (z1, empty) && step kctx i c2 == (z2, c2') =>
+--     step kctx i (eitherC c1 c2)
+--     = fmap seenToFailed (findClues kctx c2')
+--         *> step kctx i c2
+--         *> step kctx i c1
+-- Law "step/eitherC non empty"
+-- forall kctx i c1 c2 z1 c1' z2 c2'.
+--   step kctx i c1 == (z1, c1') &&
+--   step kctx i c2 == (z2, c2') &&
+--   not(isEmpty c1) && not(isEmpty c2) =>
+--     step kctx i (eitherC c1 c2) = eitherC <$> step kctx i c1 <*> step kctx i c2
+-- Law "step/clue/empty"
+-- forall kctx i k.
+--   step kctx i (clue k empty) = ((MonoidalMap.singleton (sub kctx k) completed, mempty), empty)
+-- Law "step/clue/non empty"
+-- forall kctx i k c.
+--   not(isEmpty c) =>
+--     step kctx i (clue k c)
+--     = tell (MonoidalMap.singleton (sub kctx k) seen, mempty)
+--         *> clue k <$> step (sub kctx k) i c )
 -- Law "step/gate"
--- forall i f c.
+-- forall kctx i f c.
 --   matches f i =>
---     step (Just i) (gate f c) = step Nothing c
+--     step kctx (Just i) (gate f c) = step kctx Nothing c
 -- Law "step/gate unmatched"
--- forall i f c.
+-- forall kctx i f c.
 --   not(matches f i) =>
---     step (Just i) (gate f c) = pure (gate f c)
+--     step kctx (Just i) (gate f c) = pure (gate f c)
 -- Law "step/gate nothing"
 -- forall f c.
---   step Nothing (gate f c) = pure (gate f c)
+--   step kctx Nothing (gate f c) = pure (gate f c)
 -- Law "step/andThen"
--- forall i c1 c2 r.
---   step i c1 == (r, empty) =>
---     step i (andThen c1 c2) = join (r, step Nothing c2)
+-- forall kctx i c1 c2 r.
+--   step kctx i c1 == (r, empty) =>
+--     step kctx i (andThen c1 c2) = join (r, step kctx Nothing c2)
 -- Law "step/andThen incomplete"
--- forall i c1 c2.
---   step i c1 == (_, c1') && not (isEmpty c1') =>
---     step i (andThen c1 c2) = andThen <$> (step i c1) <*> pure c2
+-- forall kctx i c1 c2.
+--   step kctx i c1 == (_, c1') && not (isEmpty c1') =>
+--     step kctx i (andThen c1 c2) = andThen <$> (step kctx i c1) <*> pure c2
 
 gate :: InputFilter -> Challenge -> Challenge
 gate _ _ = undefined
@@ -130,12 +153,14 @@ eitherC _ _ = undefined
 
 bottom :: Challenge
 bottom = undefined
+
 -- Law "bottom"
 -- forall c.
 --   bottom = gate never c
 
 timeout :: Time -> Challenge -> Challenge
 timeout _ _ = undefined
+
 -- Law "timeout"
 -- forall t c.
 --   timeout t c = eitherC (gate (afterTime t) empty) c
