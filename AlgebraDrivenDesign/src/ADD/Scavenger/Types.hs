@@ -2,11 +2,11 @@
 module ADD.Scavenger.Types where
 
 import Data.Semigroup (Max(Max))
-data Challenge
+data Challenge i
 
 data Input
 
-data InputFilter
+data InputFilter i
 
 data Reward deriving (Eq, Ord)
 

@@ -7,27 +7,27 @@ import Control.Monad (foldM)
 import Data.Map.Monoidal.Strict (MonoidalMap)
 import Data.MultiSet (MultiSet)
 
-isEmpty :: Challenge -> Bool
+isEmpty :: Challenge i -> Bool
 isEmpty _ = undefined
 
-isReward :: Challenge -> Bool
+isReward :: Challenge i -> Bool
 isReward _ = undefined
 
-findClues :: Clue -> Challenge -> MonoidalMap Clue ClueState
+findClues :: Clue -> Challenge i -> MonoidalMap Clue ClueState
 findClues _ _ = undefined
 
 type ChallengeOutput = (MonoidalMap Clue ClueState, MultiSet Reward)
 
-pumpChallenge :: Challenge -> [Input] -> (ChallengeOutput, Challenge)
+pumpChallenge :: Challenge i -> [Input] -> (ChallengeOutput, Challenge i)
 pumpChallenge c = foldM (flip $ step noClue) c . (Nothing :) . fmap Just
 
-getRewards :: Challenge -> [Input] -> MultiSet Reward
+getRewards :: Challenge i -> [Input] -> MultiSet Reward
 getRewards c is = snd . fst $ pumpChallenge c is
 
-completes :: Challenge -> [Input] -> Bool
+completes :: Challenge i -> [Input] -> Bool
 completes c is = isEmpty . snd $ pumpChallenge c is
 
-step :: Clue -> Maybe Input -> Challenge -> (ChallengeOutput, Challenge)
+step :: Clue -> Maybe Input -> Challenge i -> (ChallengeOutput, Challenge i)
 step _ _ _ = (undefined, undefined)
 
 -- Law "step/empty"
@@ -81,10 +81,10 @@ step _ _ _ = (undefined, undefined)
 --   step kctx i c1 == (_, c1') && not (isEmpty c1') =>
 --     step kctx i (andThen c1 c2) = andThen <$> (step kctx i c1) <*> pure c2
 
-gate :: InputFilter -> Challenge -> Challenge
+gate :: InputFilter i -> Challenge i -> Challenge i
 gate _ _ = undefined
 
-clue :: Clue -> Challenge -> Challenge
+clue :: Clue -> Challenge i -> Challenge i
 clue _ _ = undefined
 
 -- Law "clue/noClue"
@@ -94,13 +94,13 @@ clue _ _ = undefined
 -- forall c k1 k2.
 --   clue (sub k1 k2) c = clue k1 (clue k2 c)
 
-reward :: Reward -> Challenge
+reward :: Reward -> Challenge i
 reward _ = undefined
 
-empty :: Challenge
+empty :: Challenge i
 empty = undefined
 
-andThen :: Challenge -> Challenge -> Challenge
+andThen :: Challenge i -> Challenge i -> Challenge i
 andThen _ _ = undefined
 
 -- Law "andThen/identity"
@@ -113,7 +113,7 @@ andThen _ _ = undefined
 -- forall f c1 c2.
 --   andThen (gate f c1) c2 = gate f (andThen c1 c2)
 
-both :: Challenge -> Challenge -> Challenge
+both :: Challenge i -> Challenge i -> Challenge i
 both _ _ = undefined
 
 -- Law "both:identity"
@@ -130,7 +130,7 @@ both _ _ = undefined
 --   both (andThen (reward r) c1) c2
 --   = andThen (reward r) (both c1 c2)
 
-eitherC :: Challenge -> Challenge -> Challenge
+eitherC :: Challenge i -> Challenge i -> Challenge i
 eitherC _ _ = undefined
 
 -- Law "eitherC:identity"
@@ -151,19 +151,19 @@ eitherC _ _ = undefined
 --   not (isReward c) =>
 --     either empty c = empty
 
-bottom :: Challenge
+bottom :: Challenge i
 bottom = undefined
 
 -- Law "bottom"
 -- forall c.
 --   bottom = gate never c
 
-timeout :: Time -> Challenge -> Challenge
+timeout :: Time -> Challenge i -> Challenge i
 timeout _ _ = undefined
 
 -- Law "timeout"
 -- forall t c.
 --   timeout t c = eitherC (gate (afterTime t) empty) c
 
-pointOfInterest :: Clue -> Point -> Distance -> Reward -> Challenge
+pointOfInterest :: Clue -> Point -> Distance -> Reward -> Challenge Input
 pointOfInterest c p d r = clue c (gate (photoWithin p d) (reward r))
