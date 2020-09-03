@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
-module ADD.Scavenger.InputFilter where
+module ADD.Scavenger.Algebra.InputFilter where
 
-import ADD.Scavenger.Types
+import ADD.Scavenger.Algebra.Types
 
 class HasFilter i where
   type CustomFilter i
@@ -47,17 +47,3 @@ notF _ = undefined
 -- Law "matches/notF"
 -- forall f i.
 --   matches (notF f) i = not (matches f i)
-
--- Specific filters
-
-locWithin :: Point -> Distance -> InputFilter Input
-locWithin _ _ = undefined
-
-photoWithin :: Point -> Distance -> InputFilter Input
-photoWithin _ _ = undefined
-
-photoAbove :: Altitude -> InputFilter Input
-photoAbove _ = undefined
-
-afterTime :: Time -> InputFilter Input
-afterTime _ = undefined
