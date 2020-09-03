@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 module ADD.Scavenger where
 
 import ADD.Scavenger.Clue
@@ -5,29 +6,31 @@ import ADD.Scavenger.InputFilter
 import ADD.Scavenger.Types
 import Control.Monad (foldM)
 import Data.Map.Monoidal.Strict (MonoidalMap)
-import Data.MultiSet (MultiSet)
 
-isEmpty :: Challenge i -> Bool
+isEmpty :: Challenge i r -> Bool
 isEmpty _ = undefined
 
-isReward :: Challenge i -> Bool
+isReward :: Challenge i r -> Bool
 isReward _ = undefined
 
-findClues :: Clue -> Challenge i -> MonoidalMap Clue ClueState
+findClues :: Clue -> Challenge i r -> MonoidalMap Clue ClueState
 findClues _ _ = undefined
 
-type ChallengeOutput = (MonoidalMap Clue ClueState, MultiSet Reward)
+class Commutative r where
 
-pumpChallenge :: Challenge i -> [Input] -> (ChallengeOutput, Challenge i)
+type ValidReward r = (Monoid r, Commutative r)
+type ChallengeOutput r = (MonoidalMap Clue ClueState, r)
+
+pumpChallenge :: ValidReward r => Challenge i r -> [Input] -> (ChallengeOutput r, Challenge i r)
 pumpChallenge c = foldM (flip $ step noClue) c . (Nothing :) . fmap Just
 
-getRewards :: Challenge i -> [Input] -> MultiSet Reward
+getRewards :: ValidReward r => Challenge i r -> [Input] -> r
 getRewards c is = snd . fst $ pumpChallenge c is
 
-completes :: Challenge i -> [Input] -> Bool
+completes :: ValidReward r => Challenge i r -> [Input] -> Bool
 completes c is = isEmpty . snd $ pumpChallenge c is
 
-step :: Clue -> Maybe Input -> Challenge i -> (ChallengeOutput, Challenge i)
+step :: ValidReward r => Clue -> Maybe Input -> Challenge i r -> (ChallengeOutput r, Challenge i r)
 step _ _ _ = (undefined, undefined)
 
 -- Law "step/empty"
@@ -81,10 +84,10 @@ step _ _ _ = (undefined, undefined)
 --   step kctx i c1 == (_, c1') && not (isEmpty c1') =>
 --     step kctx i (andThen c1 c2) = andThen <$> (step kctx i c1) <*> pure c2
 
-gate :: InputFilter i -> Challenge i -> Challenge i
+gate :: InputFilter i -> Challenge i r -> Challenge i r
 gate _ _ = undefined
 
-clue :: Clue -> Challenge i -> Challenge i
+clue :: Clue -> Challenge i r -> Challenge i r
 clue _ _ = undefined
 
 -- Law "clue/noClue"
@@ -94,13 +97,19 @@ clue _ _ = undefined
 -- forall c k1 k2.
 --   clue (sub k1 k2) c = clue k1 (clue k2 c)
 
-reward :: Reward -> Challenge i
+reward :: r -> Challenge i r
 reward _ = undefined
 
-empty :: Challenge i
+-- Law "reward/mempty"
+-- reward mempty = empty
+-- Law "reward/mappend"
+-- forall r1 r2.
+--   reward (r1 <> r2) = andThen (reward r1) (reward r2)
+
+empty :: Challenge i r
 empty = undefined
 
-andThen :: Challenge i -> Challenge i -> Challenge i
+andThen :: Challenge i r -> Challenge i r -> Challenge i r
 andThen _ _ = undefined
 
 -- Law "andThen/identity"
@@ -113,7 +122,7 @@ andThen _ _ = undefined
 -- forall f c1 c2.
 --   andThen (gate f c1) c2 = gate f (andThen c1 c2)
 
-both :: Challenge i -> Challenge i -> Challenge i
+both :: Challenge i r -> Challenge i r -> Challenge i r
 both _ _ = undefined
 
 -- Law "both:identity"
@@ -130,7 +139,7 @@ both _ _ = undefined
 --   both (andThen (reward r) c1) c2
 --   = andThen (reward r) (both c1 c2)
 
-eitherC :: Challenge i -> Challenge i -> Challenge i
+eitherC :: Challenge i r -> Challenge i r -> Challenge i r
 eitherC _ _ = undefined
 
 -- Law "eitherC:identity"
@@ -151,19 +160,19 @@ eitherC _ _ = undefined
 --   not (isReward c) =>
 --     either empty c = empty
 
-bottom :: Challenge i
+bottom :: Challenge i r
 bottom = undefined
 
 -- Law "bottom"
 -- forall c.
 --   bottom = gate never c
 
-timeout :: Time -> Challenge i -> Challenge i
+timeout :: Time -> Challenge i r -> Challenge i r
 timeout _ _ = undefined
 
 -- Law "timeout"
 -- forall t c.
 --   timeout t c = eitherC (gate (afterTime t) empty) c
 
-pointOfInterest :: Clue -> Point -> Distance -> Reward -> Challenge Input
+pointOfInterest :: Clue -> Point -> Distance -> r -> Challenge Input r
 pointOfInterest c p d r = clue c (gate (photoWithin p d) (reward r))
