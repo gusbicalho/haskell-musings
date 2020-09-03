@@ -2,7 +2,7 @@
 module ADD.Scavenger.Types where
 
 import Data.Semigroup (Max(Max))
-data Challenge i r
+data Challenge i k r
 
 data Input
 
