@@ -18,6 +18,17 @@ packages:
       sha256: 0356be78a4720251536932d2253f75eb1f97b26c61260e566b5e8e05642d5349
   original:
     hackage: twee-lib-2.2@sha256:9fe9327505d8f450a94f2fc9eea74b292901b7992d520aa1dd4f0410fbe0e594,2112
+- completed:
+    name: monoidal-containers
+    version: 0.6.0.1
+    git: git@github.com:gusbicalho/monoidal-containers.git
+    pantry-tree:
+      size: 769
+      sha256: ca2892b0165cce027dbb00ea643869f064eb3e99f5a243aae0b8e22efc97aca4
+    commit: 70b6ecf6bae545d70d55c6882c13f10061ebea1a
+  original:
+    git: git@github.com:gusbicalho/monoidal-containers.git
+    commit: 70b6ecf6bae545d70d55c6882c13f10061ebea1a
 snapshots:
 - completed:
     size: 523217

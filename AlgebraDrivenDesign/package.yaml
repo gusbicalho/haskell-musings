@@ -9,6 +9,7 @@ dependencies:
 - transformers
 - containers
 - multiset
+- monoidal-containers
 
 library:
   source-dirs: src
