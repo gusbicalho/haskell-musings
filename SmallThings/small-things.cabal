@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f9a5527b175ecd0a2a3d2c8d962c706cd9c7f0dcbc1c8c70d1de88e5e859d7ff
+-- hash: fe08b71dadd26dadb93f9306e86c64cadb70c826c1f420ee65def8c458769ace
 
 name:           small-things
 version:        0.1.0.0
@@ -15,6 +15,7 @@ build-type:     Simple
 
 library
   exposed-modules:
+      Cont
       NFold
       NFoldUsage
   other-modules:
@@ -32,6 +33,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Cont
       NFold
       NFoldUsage
       Paths_small_things

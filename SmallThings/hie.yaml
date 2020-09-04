@@ -1,6 +1,6 @@
 cradle:
   stack:
     - path: "./src"
-      component: "algebra-driven-design:lib"
+      component: "small-things:lib"
     - path: "./test"
-      component: "algebra-driven-design:test"
+      component: "small-things:test"
