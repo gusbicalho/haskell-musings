@@ -1,13 +1,25 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module ADD.Scavenger where
 
 import ADD.Scavenger.Algebra.Challenge
+  ( Challenge,
+    ChallengeOutput,
+    Commutative,
+    clue,
+    eitherC,
+    empty,
+    gate,
+    pumpChallenge,
+    reward,
+  )
 import ADD.Scavenger.Algebra.InputFilter
-import ADD.Scavenger.Algebra.Types
+  ( HasFilter (..),
+    InputFilter,
+  )
 import Data.MultiSet (MultiSet)
 import qualified Data.MultiSet as MultiSet
 
@@ -34,10 +46,10 @@ newtype Hint = Hint String
 
 data Reward deriving (Eq, Ord)
 
-newtype Rewards = Rewards { getRewards :: MultiSet Reward }
+newtype Rewards = Rewards {getRewards :: MultiSet Reward}
   deriving newtype (Semigroup, Monoid)
 
-instance Commutative Rewards where
+instance Commutative Rewards
 
 -- Challenges
 

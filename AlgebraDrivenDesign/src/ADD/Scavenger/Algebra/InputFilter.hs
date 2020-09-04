@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module ADD.Scavenger.Algebra.InputFilter where
 
-import ADD.Scavenger.Algebra.Types
+data InputFilter i
 
 class HasFilter i where
   type CustomFilter i

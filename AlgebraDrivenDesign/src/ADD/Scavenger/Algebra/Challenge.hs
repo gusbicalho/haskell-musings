@@ -1,10 +1,13 @@
 {-# LANGUAGE ConstraintKinds #-}
+
 module ADD.Scavenger.Algebra.Challenge where
 
-import ADD.Scavenger.Algebra.InputFilter
-import ADD.Scavenger.Algebra.Types
+import ADD.Scavenger.Algebra.ClueState (ClueState)
+import ADD.Scavenger.Algebra.InputFilter (HasFilter, InputFilter)
 import Control.Monad (foldM)
 import Data.Map.Monoidal.Strict (MonoidalMap)
+
+data Challenge i k r
 
 isEmpty :: Challenge i k r -> Bool
 isEmpty _ = undefined
@@ -15,12 +18,16 @@ isReward _ = undefined
 findClues :: [k] -> Challenge i k r -> MonoidalMap [k] ClueState
 findClues _ _ = undefined
 
-class Semigroup r => Commutative r where
+class Semigroup r => Commutative r
 
 type ValidInput i = HasFilter i
+
 type ValidReward r = (Monoid r, Commutative r)
+
 type ValidClue k = Ord k
+
 type ValidChallenge i k r = (ValidInput i, ValidClue k, ValidReward r)
+
 type ChallengeOutput k r = (MonoidalMap [k] ClueState, r)
 
 pumpChallenge :: ValidChallenge i k r => Challenge i k r -> [i] -> (ChallengeOutput k r, Challenge i k r)
@@ -31,6 +38,9 @@ getRewards c is = snd . fst $ pumpChallenge c is
 
 completes :: ValidChallenge i k r => Challenge i k r -> [i] -> Bool
 completes c is = isEmpty . snd $ pumpChallenge c is
+
+getClues :: ValidChallenge i k r => Challenge i k r -> [i] -> MonoidalMap [k] ClueState
+getClues c is = fst . fst $ pumpChallenge c is
 
 step :: ValidChallenge i k r => [k] -> Maybe i -> Challenge i k r -> (ChallengeOutput k r, Challenge i k r)
 step _ _ _ = (undefined, undefined)
@@ -86,18 +96,8 @@ step _ _ _ = (undefined, undefined)
 --   step kctx i c1 == (_, c1') && not (isEmpty c1') =>
 --     step kctx i (andThen c1 c2) = andThen <$> (step kctx i c1) <*> pure c2
 
-gate :: InputFilter i -> Challenge i k r -> Challenge i k r
-gate _ _ = undefined
-
-clue :: [k] -> Challenge i k r -> Challenge i k r
-clue _ _ = undefined
-
--- Law "clue/mempty"
--- forall c.
---   clue mempty c = c
--- Law "clue/mappend"
--- forall c k1 k2.
---   clue (k1 <> k2) c = clue k1 (clue k2 c)
+empty :: Challenge i k r
+empty = undefined
 
 reward :: r -> Challenge i k r
 reward _ = undefined
@@ -108,8 +108,8 @@ reward _ = undefined
 -- forall r1 r2.
 --   reward (r1 <> r2) = andThen (reward r1) (reward r2)
 
-empty :: Challenge i k r
-empty = undefined
+gate :: InputFilter i -> Challenge i k r -> Challenge i k r
+gate _ _ = undefined
 
 andThen :: Challenge i k r -> Challenge i k r -> Challenge i k r
 andThen _ _ = undefined
@@ -168,3 +168,13 @@ bottom = undefined
 -- Law "bottom"
 -- forall c.
 --   bottom = gate never c
+
+clue :: [k] -> Challenge i k r -> Challenge i k r
+clue _ _ = undefined
+
+-- Law "clue/mempty"
+-- forall c.
+--   clue mempty c = c
+-- Law "clue/mappend"
+-- forall c k1 k2.
+--   clue (k1 <> k2) c = clue k1 (clue k2 c)
