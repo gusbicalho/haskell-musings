@@ -37,8 +37,8 @@ data Photo
 data Time
 
 instance HasFilter Input where
-  type CustomFilter Input = Input -> Bool
-  filterMatches f i = f i
+  data CustomFilter Input = Check (Input -> Bool)
+  filterMatches (Check f) i = f i
 
 -- Other types
 newtype Hint = Hint String
