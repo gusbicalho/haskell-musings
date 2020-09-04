@@ -27,10 +27,10 @@ instance Monad (Cont r) where
         let (Cont continueProvidingB) = f a
          in continueProvidingB completeExpectingB
 
-ex :: Cont [a] Integer
+ex :: Cont String Integer
 ex = do
   a <- pure 1
-  b <- cont (\k -> k 10 ++ k 20)
+  b <- cont (\k -> k 10 <> k 20)
   pure $ a + b
 
 -- >>> runCont ex show
