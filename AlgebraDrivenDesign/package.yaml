@@ -10,6 +10,7 @@ dependencies:
 - containers
 - multiset
 - monoidal-containers
+- generic-data
 
 library:
   source-dirs: src

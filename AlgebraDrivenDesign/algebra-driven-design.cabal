@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0c07a095b7a1ef181ef0fbde00f34758eb5c0e92c920ba9da2121b6d64bf43cc
+-- hash: 8e7a7bb95e75e3911860372696dc674143aed8186d46115cbfab978ee0ab0f6a
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , generic-data
     , monoidal-containers
     , multiset
     , transformers
@@ -65,6 +66,7 @@ test-suite test
       QuickCheck
     , base >=4.7 && <5
     , containers
+    , generic-data
     , hspec
     , monoidal-containers
     , multiset

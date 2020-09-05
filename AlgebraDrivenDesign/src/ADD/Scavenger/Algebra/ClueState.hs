@@ -4,15 +4,15 @@ module ADD.Scavenger.Algebra.ClueState where
 
 import Data.Semigroup (Max (Max))
 
-data ClueState
-  deriving (Eq, Ord)
-  deriving (Semigroup) via Max ClueState
+data ClueState = Seen | Failed | Completed
+  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Semigroup, Monoid) via Max ClueState
 
 seen :: ClueState
-seen = undefined
+seen = Seen
 
 completed :: ClueState
-completed = undefined
+completed = Completed
 
 failed :: ClueState
-failed = undefined
+failed = Failed
