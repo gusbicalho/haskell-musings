@@ -9,7 +9,7 @@
 module ADD.Scavenger where
 
 import ADD.Scavenger.Algebra.Challenge
-  ( Challenge,
+  (rewardThen,  Challenge,
     Commutative,
     Results,
     andThen,
@@ -18,7 +18,7 @@ import ADD.Scavenger.Algebra.Challenge
     empty,
     gate,
     pumpChallenge,
-    reward,
+    reward, bottom
   )
 import ADD.Scavenger.Algebra.InputFilter
   (andF,  HasFilter (..),
@@ -176,6 +176,12 @@ failedRun =
 
 -- >>> runGame failedRun
 -- (Results {rewards = Points 12, clues = MonoidalMap {getMonoidalMap = fromList [([Hint "Run around the block in under five minutes"],Failed)]}},Empty)
+
+-- >>> let c = rewardThen 10 empty :: Challenge Input Hint Rewards in pumpChallenge c []
+-- (Results {rewards = Points 10, clues = MonoidalMap {getMonoidalMap = fromList []}},Empty)
+
+-- >>> let c = rewardThen 10 empty :: Challenge Input Hint Rewards in pumpChallenge (eitherC c bottom) []
+-- (Results {rewards = Points 10, clues = MonoidalMap {getMonoidalMap = fromList []}},Gate Never Empty)
 
 timeout :: Time -> Challenge Input k Rewards -> Challenge Input k Rewards
 timeout t c = eitherC (gate (afterTime t) empty) c

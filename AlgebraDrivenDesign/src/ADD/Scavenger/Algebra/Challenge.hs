@@ -1,10 +1,11 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module ADD.Scavenger.Algebra.Challenge where
 
@@ -25,8 +26,11 @@ data Challenge i k r
   | Both (Challenge i k r) (Challenge i k r)
   | AndThen (Challenge i k r) (Challenge i k r)
   deriving stock (Generic)
+
 deriving instance (Eq k, Eq r, Eq (CustomFilter i)) => Eq (Challenge i k r)
+
 deriving instance (Ord k, Ord r, Ord (CustomFilter i)) => Ord (Challenge i k r)
+
 deriving instance (Show k, Show r, Show (CustomFilter i)) => Show (Challenge i k r)
 
 isEmpty :: Challenge i k r -> Bool
@@ -57,7 +61,14 @@ type ValidReward r = (Eq r, Monoid r, Commutative r)
 
 type ValidClue k = Ord k
 
-type ValidChallenge i k r = (ValidInput i, ValidClue k, ValidReward r)
+type ValidChallenge i k r =
+  ( ValidInput i,
+    ValidClue k,
+    ValidReward r,
+    Show k,
+    Show r,
+    Show (CustomFilter i)
+  )
 
 data Results k r = Results
   { rewards :: r,
@@ -66,10 +77,10 @@ data Results k r = Results
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Semigroup, Monoid) via Generically (Results k r)
 
-pumpChallenge :: ValidChallenge i k r => Challenge i k r -> [i] -> (Results k r, Challenge i k r)
+pumpChallenge :: (ValidChallenge i k r) => Challenge i k r -> [i] -> (Results k r, Challenge i k r)
 pumpChallenge c = foldM (flip $ step mempty) c . (Nothing :) . fmap Just
 
-runChallenge :: (HasFilter i, Ord k, Monoid r, Commutative r, Eq r) => Challenge i k r -> [i] -> (Results k r, Bool)
+runChallenge :: ValidChallenge i k r => Challenge i k r -> [i] -> (Results k r, Bool)
 runChallenge c = fmap isEmpty . pumpChallenge c
 
 getRewards :: ValidChallenge i k r => Challenge i k r -> [i] -> r
@@ -81,7 +92,7 @@ completes c is = isEmpty . snd $ pumpChallenge c is
 getClues :: ValidChallenge i k r => Challenge i k r -> [i] -> MonoidalMap [k] ClueState
 getClues c is = clues . fst $ pumpChallenge c is
 
-step :: ValidChallenge i k r => [k] -> Maybe i -> Challenge i k r -> (Results k r, Challenge i k r)
+step :: (ValidChallenge i k r) => [k] -> Maybe i -> Challenge i k r -> (Results k r, Challenge i k r)
 step _ _ Empty = pure empty
 step kctx i (Both c1 c2) = both <$> step kctx i c1 <*> step kctx i c2
 step kctx i (RewardThen r c) = tellReward r *> step kctx i c
@@ -178,16 +189,16 @@ tellReward r = (Results r mempty, ())
 --   step kctx i c1 == (_, c1') && not (isEmpty c1') =>
 --     step kctx i (andThen c1 c2) = andThen <$> (step kctx i c1) <*> pure c2
 
-empty :: Challenge i k r
+empty :: forall i k r. Challenge i k r
 empty = Empty
 
-rewardThen :: (Eq r, Monoid r) => r -> Challenge i k r -> Challenge i k r
+rewardThen :: forall i k r. (Eq r, Monoid r) => r -> Challenge i k r -> Challenge i k r
 rewardThen r (RewardThen r' c) = rewardThen (r <> r') c
 rewardThen r c
   | r == mempty = c
   | otherwise = RewardThen r c
 
-reward :: (Eq r, Monoid r) => r -> Challenge i k r
+reward :: forall i k r. (Eq r, Monoid r) => r -> Challenge i k r
 reward r = rewardThen r empty
 
 -- Law "reward/mempty"
@@ -199,10 +210,10 @@ reward r = rewardThen r empty
 -- forall r c.
 --   RewardThen r c = andThen (reward r) c
 
-gate :: InputFilter i -> Challenge i k r -> Challenge i k r
+gate :: forall i k r. InputFilter i -> Challenge i k r -> Challenge i k r
 gate f c = Gate f c
 
-andThen :: (Eq r, Monoid r) => Challenge i k r -> Challenge i k r -> Challenge i k r
+andThen :: forall i k r. (Eq r, Monoid r) => Challenge i k r -> Challenge i k r -> Challenge i k r
 andThen c1 Empty = c1
 andThen Empty c2 = c2
 andThen (RewardThen r c1) c2 = rewardThen r (andThen c1 c2)
@@ -220,7 +231,7 @@ andThen c1 c2 = AndThen c1 c2
 -- forall f c1 c2.
 --   andThen (gate f c1) c2 = gate f (andThen c1 c2)
 
-both :: (Eq r, Monoid r) => Challenge i k r -> Challenge i k r -> Challenge i k r
+both :: forall i k r. (Eq r, Monoid r) => Challenge i k r -> Challenge i k r -> Challenge i k r
 both c1 Empty = c1
 both Empty c2 = c2
 both (RewardThen r c1) c2 = rewardThen r (both c1 c2)
@@ -241,9 +252,9 @@ both c1 c2 = Both c1 c2
 --   both (andThen (reward r) c1) c2
 --   = andThen (reward r) (both c1 c2)
 
-eitherC :: (Eq r, Monoid r) => Challenge i k r -> Challenge i k r -> Challenge i k r
-eitherC (RewardThen r c1) c2 = rewardThen r (both c1 c2)
-eitherC c1 (RewardThen r c2) = rewardThen r (both c1 c2)
+eitherC :: forall i k r. (Eq r, Monoid r) => Challenge i k r -> Challenge i k r -> Challenge i k r
+eitherC (RewardThen r c1) c2 = rewardThen r (eitherC c1 c2)
+eitherC c1 (RewardThen r c2) = rewardThen r (eitherC c1 c2)
 eitherC c1 c2 = EitherC c1 c2
 
 -- Law "eitherC:identity"
@@ -264,14 +275,14 @@ eitherC c1 c2 = EitherC c1 c2
 --   not (isReward c) =>
 --     either empty c = empty
 
-bottom :: Challenge i k r
+bottom :: forall i k r. Challenge i k r
 bottom = gate never empty
 
 -- Law "bottom"
 -- forall c.
 --   bottom = gate never c
 
-clue :: (Eq r, Monoid r) => [k] -> Challenge i k r -> Challenge i k r
+clue :: forall i k r. (Eq r, Monoid r) => [k] -> Challenge i k r -> Challenge i k r
 clue [] c = c
 clue k (RewardThen r c) = rewardThen r (clue k c)
 clue k c = foldr Clue c k

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8e7a7bb95e75e3911860372696dc674143aed8186d46115cbfab978ee0ab0f6a
+-- hash: 8aa304a1006a777776b0f7d8f82c7f76623cd3cd9dede8464989bdd447ef6e58
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -44,6 +44,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      ADD.Scavenger.Algebra.ChallengeSpec
       ADD.Scavenger.Algebra.InputFilterSpec
       ADD_Old.Games.FirstModelSpec
       ADD.Scavenger
