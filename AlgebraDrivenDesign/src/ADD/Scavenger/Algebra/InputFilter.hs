@@ -1,7 +1,7 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module ADD.Scavenger.Algebra.InputFilter where
 
@@ -17,7 +17,9 @@ data InputFilter i
   deriving stock (Generic)
 
 deriving instance Eq (CustomFilter i) => Eq (InputFilter i)
+
 deriving instance Ord (CustomFilter i) => Ord (InputFilter i)
+
 deriving instance Show (CustomFilter i) => Show (InputFilter i)
 
 class HasFilter i where

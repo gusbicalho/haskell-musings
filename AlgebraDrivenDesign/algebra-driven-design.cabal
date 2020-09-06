@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8aa304a1006a777776b0f7d8f82c7f76623cd3cd9dede8464989bdd447ef6e58
+-- hash: da49e9241ad889059c102dfe7732a046acbf6f1ae155cc3c8b67e6c09efe9429
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -62,7 +62,7 @@ test-suite test
       test
       src
   default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms TypeApplications
-  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do -O2
   build-depends:
       QuickCheck
     , base >=4.7 && <5

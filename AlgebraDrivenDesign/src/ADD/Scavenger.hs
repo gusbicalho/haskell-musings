@@ -9,7 +9,7 @@
 module ADD.Scavenger where
 
 import ADD.Scavenger.Algebra.Challenge
-  (rewardThen,  Challenge,
+  ( Challenge,
     Commutative,
     Results,
     andThen,
@@ -18,11 +18,12 @@ import ADD.Scavenger.Algebra.Challenge
     empty,
     gate,
     pumpChallenge,
-    reward, bottom
+    reward,
   )
 import ADD.Scavenger.Algebra.InputFilter
-  (andF,  HasFilter (..),
+  ( HasFilter (..),
     InputFilter,
+    andF,
     custom,
   )
 import Data.Semigroup (Sum (Sum))
@@ -66,7 +67,6 @@ instance HasFilter Input where
   filterMatches (Above threshold) i
     | EventPhoto _ altitude _ <- i = altitude > threshold
   filterMatches _ _ = False
-
 
 -- Other types
 newtype Hint = Hint String
