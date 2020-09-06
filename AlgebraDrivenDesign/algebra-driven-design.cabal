@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: da49e9241ad889059c102dfe7732a046acbf6f1ae155cc3c8b67e6c09efe9429
+-- hash: 279e45b824010c3bbfed8f68d21830f4635f4f4958559315b300c80828c310d9
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -19,6 +19,9 @@ library
       ADD.Scavenger.Algebra.Challenge
       ADD.Scavenger.Algebra.ClueState
       ADD.Scavenger.Algebra.InputFilter
+      ADD.Scavenger.Algebra2.Challenge
+      ADD.Scavenger.Algebra2.ClueState
+      ADD.Scavenger.Algebra2.InputFilter
       ADD_Old.Games.FirstModel
       ADD_Old.Games.FirstModel.Events
       ADD_Old.Games.FirstModel.Game
@@ -34,6 +37,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , dlist
     , generic-data
     , monoidal-containers
     , multiset
@@ -46,11 +50,16 @@ test-suite test
   other-modules:
       ADD.Scavenger.Algebra.ChallengeSpec
       ADD.Scavenger.Algebra.InputFilterSpec
+      ADD.Scavenger.Algebra2.ChallengeSpec
+      ADD.Scavenger.Algebra2.InputFilterSpec
       ADD_Old.Games.FirstModelSpec
       ADD.Scavenger
       ADD.Scavenger.Algebra.Challenge
       ADD.Scavenger.Algebra.ClueState
       ADD.Scavenger.Algebra.InputFilter
+      ADD.Scavenger.Algebra2.Challenge
+      ADD.Scavenger.Algebra2.ClueState
+      ADD.Scavenger.Algebra2.InputFilter
       ADD_Old.Games.FirstModel
       ADD_Old.Games.FirstModel.Events
       ADD_Old.Games.FirstModel.Game
@@ -67,6 +76,7 @@ test-suite test
       QuickCheck
     , base >=4.7 && <5
     , containers
+    , dlist
     , generic-data
     , hspec
     , monoidal-containers

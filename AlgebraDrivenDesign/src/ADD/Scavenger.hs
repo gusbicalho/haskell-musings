@@ -8,7 +8,7 @@
 
 module ADD.Scavenger where
 
-import ADD.Scavenger.Algebra.Challenge
+import ADD.Scavenger.Algebra2.Challenge
   ( Challenge,
     Commutative,
     Results,
@@ -17,10 +17,10 @@ import ADD.Scavenger.Algebra.Challenge
     eitherC,
     empty,
     gate,
-    pumpChallenge,
     reward,
+    runChallenge,
   )
-import ADD.Scavenger.Algebra.InputFilter
+import ADD.Scavenger.Algebra2.InputFilter
   ( HasFilter (..),
     InputFilter,
     andF,
@@ -34,6 +34,7 @@ data Input
   = EventTime Time
   | EventLocation Point
   | EventPhoto Point Altitude Photo
+  deriving (Eq, Ord, Show)
 
 data Photo = Photo
   deriving (Eq, Ord, Show)
@@ -57,7 +58,7 @@ instance HasFilter Input where
     | AfterTime Time
     | Within Point Distance
     | Above Altitude
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
   filterMatches IsLocation (EventLocation {}) = True
   filterMatches IsPhoto (EventPhoto {}) = True
   filterMatches (AfterTime t0) (EventTime te) = te > t0
@@ -81,9 +82,9 @@ instance Commutative Rewards
 
 -- Challenges
 
-runGame :: [Input] -> (Results Hint Rewards, Challenge Input Hint Rewards)
+runGame :: [Input] -> (Results Hint Rewards, Bool)
 runGame =
-  pumpChallenge
+  runChallenge
     $ timeout fiveMinutes
     $ clue [Hint "Run around the block in under five minutes"]
     $ aroundTheBlock
@@ -183,10 +184,10 @@ failedRun =
 -- >>> let c = rewardThen 10 empty :: Challenge Input Hint Rewards in pumpChallenge (eitherC c bottom) []
 -- (Results {rewards = Points 10, clues = MonoidalMap {getMonoidalMap = fromList []}},Gate Never Empty)
 
-timeout :: Time -> Challenge Input k Rewards -> Challenge Input k Rewards
+timeout :: Time -> Challenge Input Hint Rewards -> Challenge Input Hint Rewards
 timeout t c = eitherC (gate (afterTime t) empty) c
 
-pointOfInterest :: [k] -> Point -> Distance -> Rewards -> Challenge Input k Rewards
+pointOfInterest :: [Hint] -> Point -> Distance -> Rewards -> Challenge Input Hint Rewards
 pointOfInterest k p d r = clue k (gate (photoWithin p d) (reward r))
 
 -- Filters

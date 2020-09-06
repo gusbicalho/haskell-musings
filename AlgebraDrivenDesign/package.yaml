@@ -11,6 +11,7 @@ dependencies:
 - multiset
 - monoidal-containers
 - generic-data
+- dlist
 
 library:
   source-dirs: src
