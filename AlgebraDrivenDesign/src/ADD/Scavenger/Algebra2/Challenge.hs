@@ -155,35 +155,6 @@ step i cData = do
     cData {waitingOn = removeMatchedGates (waitingOn cData)}
       <> newChallengeData
 
--- step :: (ValidChallenge i k r) => [k] -> Maybe i -> Challenge i k r -> (Results k r, Challenge i k r)
--- step _ _ Empty = pure empty
--- step kctx i (Both c1 c2) = both <$> step kctx i c1 <*> step kctx i c2
--- step kctx i (RewardThen r c) = tellReward r *> step kctx i c
--- step kctx (Just i) (Gate f c)
---   | matches f i = step kctx Nothing c
--- step _ _ c@(Gate {}) = pure c
--- step kctx i (AndThen c1 c2) =
---   step kctx i c1 >>= \case
---     Empty -> step kctx Nothing c2
---     c1' -> pure $ andThen c1' c2
--- step kctx i (EitherC c1 c2) = do
---   c1' <- step kctx i c1
---   c2' <- step kctx i c2
---   case (c1', c2') of
---     (Empty, _) -> pruneClues kctx c2'
---     (_, Empty) -> pruneClues kctx c1'
---     _ -> pure $ eitherC c1' c2'
--- step kctx i (Clue k c) = do
---   step kctx' i c >>= \case
---     Empty -> do
---       tellClue kctx' completed
---       pure empty
---     c' -> do
---       tellClue kctx' seen
---       pure $ clue [k] c'
---   where
---     kctx' = kctx <> [k]
-
 tellReward ::
   forall i k r s.
   (Monoid r, Ord k, Ord (CustomFilter i)) =>
@@ -306,7 +277,3 @@ clue (k : ks) c =
         pure $ tellClue clueName' clueState <> contData
     )
     ("clue (" <> show (k : ks) <> ") (" <> show c <> ")")
-
--- clue [] c = c
--- clue k (RewardThen r c) = rewardThen r (clue k c)
--- clue k c = foldr Clue c k
