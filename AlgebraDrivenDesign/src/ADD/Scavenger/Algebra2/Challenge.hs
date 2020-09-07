@@ -57,15 +57,15 @@ noClueContext :: ClueContext k s
 noClueContext = ClueContext mempty (const pure)
 
 data Challenge i k r = Challenge
-  { unChallenge ::
+  { showChallenge :: String,
+    unChallenge ::
       forall s.
       ClueContext k s ->
       ST s (ChallengeData i k r s) ->
-      ST s (ChallengeData i k r s),
-    showChallenge :: String
+      ST s (ChallengeData i k r s)
   }
 
-instance (ValidChallenge i k r) => Show (Challenge i k r) where
+instance Show (Challenge i k r) where
   show = showChallenge
 
 instance
@@ -78,12 +78,7 @@ instance
           d1 <- unChallenge c1 cont
           d2 <- unChallenge c2 cont
           pure $ d1 <> d2,
-        showChallenge =
-          "("
-            <> showChallenge c1
-            <> ") <> ("
-            <> showChallenge c2
-            <> ")"
+        showChallenge = labeled2 "(<>)" c1 c2
       }
 
 instance
@@ -174,50 +169,44 @@ end :: ValidChallenge i k r => ST s (ChallengeData i k r s)
 end = pure $ mempty {isComplete' = Any True}
 
 empty :: forall i k r. Challenge i k r
-empty = Challenge (\_ cont -> cont) "empty"
+empty = Challenge "empty" $ \_ cont -> cont
 
 reward :: forall i k r. ValidChallenge i k r => r -> Challenge i k r
 reward r =
   Challenge
-    ( \_ cont ->
-        fmap
-          (<> tellReward r)
-          cont
-    )
-    ("reward (" <> show r <> ")")
+    (labeled "reward" r)
+    $ \_ -> fmap (<> tellReward r)
 
 gate :: forall i k r. ValidChallenge i k r => InputFilter i -> Challenge i k r -> Challenge i k r
 gate f c =
   Challenge
-    ( \kctx cont -> do
-        pure $
-          (mempty :: ChallengeData i k r s)
-            { waitingOn = MonoidalMap.singleton f (unChallenge c kctx cont)
-            }
-    )
-    ("gate (" <> show f <> ") (" <> show c <> ")")
+    (labeled2 "gate" f c)
+    $ \kctx cont ->
+      pure $
+        (mempty :: ChallengeData i k r s)
+          { waitingOn = MonoidalMap.singleton f (unChallenge c kctx cont)
+          }
 
-andThen :: forall i k r. ValidChallenge i k r => Challenge i k r -> Challenge i k r -> Challenge i k r
+andThen :: forall i k r. Challenge i k r -> Challenge i k r -> Challenge i k r
 andThen c1 c2 =
   Challenge
-    (\kctx -> unChallenge c1 kctx . unChallenge c2 kctx)
-    ("andThen (" <> show c1 <> ") (" <> show c2 <> ")")
+    (labeled2 "andThen" c1 c2)
+    $ \kctx -> unChallenge c1 kctx . unChallenge c2 kctx
 
 both :: forall i k r. (ValidChallenge i k r) => Challenge i k r -> Challenge i k r -> Challenge i k r
 both c1 c2 =
   Challenge
-    ( \kctx cont -> do
-        remaining <- newSTRef (2 :: Word8)
-        let cont' = do
-              modifySTRef' remaining $ subtract 1
-              readSTRef remaining >>= \case
-                0 -> cont
-                _ -> pure mempty
-        d1 <- unChallenge c1 kctx cont'
-        d2 <- unChallenge c2 kctx cont'
-        pure $ d1 <> d2
-    )
-    ("both (" <> show c1 <> ") (" <> show c2 <> ")")
+    (labeled2 "both" c1 c2)
+    $ \kctx cont -> do
+      remaining <- newSTRef (2 :: Word8)
+      let cont' = do
+            modifySTRef' remaining $ subtract 1
+            readSTRef remaining >>= \case
+              0 -> cont
+              _ -> pure mempty
+      d1 <- unChallenge c1 kctx cont'
+      d2 <- unChallenge c2 kctx cont'
+      pure $ d1 <> d2
 
 oneShot :: Monoid b => STRef s Bool -> ST s b -> ST s b
 oneShot ref action = do
@@ -230,21 +219,34 @@ oneShot ref action = do
 eitherC :: forall i k r. (ValidChallenge i k r) => Challenge i k r -> Challenge i k r -> Challenge i k r
 eitherC c1 c2 =
   Challenge
-    ( \kctx cont -> do
-        filled <- newSTRef False
-        c1Clues <- newSTRef mempty
-        c2Clues <- newSTRef mempty
-        d1 <- unChallenge c1 (decorate filled c1Clues kctx) . oneShot filled $ do
-          d <- cont
-          prunedClues <- pruneClues c2Clues
-          pure $ d <> prunedClues
-        d2 <- unChallenge c2 (decorate filled c2Clues kctx) . oneShot filled $ do
-          d <- cont
-          prunedClues <- pruneClues c1Clues
-          pure $ d <> prunedClues
-        pure $ d1 <> d2
-    )
-    ("eitherC (" <> show c1 <> ") (" <> show c2 <> ")")
+    (labeled2 "eitherC" c1 c2)
+    $ \kctx cont -> do
+      -- Both branches will try to fill this STRef, only one will succeed,
+      -- due to oneShot. oneShot replaces the ChallengeData result from the
+      -- "latest" branch into mempty, so the output from that branch in lost.
+      -- Notice we only lose the output for the "latest" step of the pruned
+      -- branch, that step that would happen at the same time as the final step
+      -- of the completed branch.
+      -- Since we process c1 branch first, this prunning is biased in that
+      -- direction - if c1 and c2 complete together, c2 will be pruned.
+      filled <- newSTRef False
+      -- We collect all clues touched by each branch in these Refs
+      -- The `decorate`d ClueContext for each branch will add each clue from
+      -- that branch to the respective Ref, so that the other branch can prune
+      -- it them if it completes.
+      -- The `decorated`d ClueContext will also ensure that clues touched after
+      -- one branch completes will be set as failed.
+      c1Clues <- newSTRef mempty
+      c2Clues <- newSTRef mempty
+      cData1 <- unChallenge c1 (decorate filled c1Clues kctx) . oneShot filled $ do
+        d <- cont
+        prunedClues <- pruneClues c2Clues
+        pure $ d <> prunedClues
+      cData2 <- unChallenge c2 (decorate filled c2Clues kctx) . oneShot filled $ do
+        d <- cont
+        prunedClues <- pruneClues c1Clues
+        pure $ d <> prunedClues
+      pure $ cData1 <> cData2
   where
     decorate :: forall s. STRef s Bool -> STRef s [(DList k)] -> ClueContext k s -> ClueContext k s
     decorate filledRef cluesRef kctx =
@@ -260,20 +262,29 @@ eitherC c1 c2 =
     pruneClues clues = foldMap (\k -> tellClue (DList.toList k) failed) <$> readSTRef clues
 
 bottom :: forall i k r. (Monoid r, Ord k, Ord (CustomFilter i)) => Challenge i k r
-bottom = Challenge (\_ -> mempty) "bottom"
+bottom = Challenge "bottom" (\_ -> mempty)
 
 clue :: forall i k r. (ValidChallenge i k r) => [k] -> Challenge i k r -> Challenge i k r
 clue [] c = c
 clue (k : ks) c =
   Challenge
-    ( \kctx cont -> do
-        let clueName = currentClue kctx <> DList.singleton k
-            clueName' = DList.toList $ currentClue kctx'
-            kctx' = kctx {currentClue = clueName}
-        clueState <- recordClueState kctx clueName seen
-        contData <- unChallenge (clue ks c) kctx' $ do
-          d <- cont
-          pure $ tellClue clueName' completed <> d
-        pure $ tellClue clueName' clueState <> contData
-    )
-    ("clue (" <> show (k : ks) <> ") (" <> show c <> ")")
+    (labeled2 "clue" (k : ks) c)
+    $ \kctx cont -> do
+      let clueName = currentClue kctx <> DList.singleton k
+          clueName' = DList.toList $ currentClue kctx'
+          kctx' = kctx {currentClue = clueName}
+      -- we attempt to mark the clue as seen, but the ClueContext may decide
+      -- to return a different state, in which case we will use that one
+      clueState <- recordClueState kctx clueName seen
+      -- we run the challenge with the remaining clues, and when/if it completes,
+      -- we will set the clue to completed
+      contData <- unChallenge (clue ks c) kctx' $ do
+        d <- cont
+        pure $ tellClue clueName' completed <> d
+      pure $ tellClue clueName' clueState <> contData
+
+labeled :: (Show a) => String -> a -> String
+labeled label a = label <> " (" <> show a <> ")"
+
+labeled2 :: (Show a, Show b) => String -> a -> b -> String
+labeled2 label a b = label <> " (" <> show a <> ") (" <> show b <> ")"
