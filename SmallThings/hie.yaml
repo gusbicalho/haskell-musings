@@ -1,6 +1,0 @@
-cradle:
-  stack:
-    - path: "./src"
-      component: "small-things:lib"
-    - path: "./test"
-      component: "small-things:test"
