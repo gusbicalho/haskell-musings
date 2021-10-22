@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Free.Church where
+module Free.Church (Free, free, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
@@ -14,6 +14,9 @@ newtype Free f a where
 
 lift :: f (Free f a) -> Free f a
 lift fa = Free $ \_onPure onLift -> onLift fa
+
+free :: Functor f => f a -> Free f a
+free fa = lift (fmap pure fa)
 
 instance Functor f => Functor (Free f) where
   fmap = liftA
