@@ -4,13 +4,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Freer.FinalClassy where
+module Freedoms.Freer.FinalClassy (Freer, Interpreter (interpret), freer, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
-import Control.Monad.Trans.Reader (ReaderT (ReaderT, runReaderT))
 import Data.Kind (Constraint, Type)
-import Freer.Common (Interpret)
+import Freedoms.Freer.Common (Interpret)
 
 type Freer :: ((Type -> Type) -> Type -> Type) -> (Type -> Type)
 newtype Freer f a where

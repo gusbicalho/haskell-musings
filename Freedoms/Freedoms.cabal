@@ -1,0 +1,43 @@
+cabal-version:      2.4
+name:               Freedoms
+version:            0.1.0.0
+
+synopsis:           Many versions of free/freer monads
+
+license:            MIT
+author:             Gustavo Bicalho
+maintainer:         gusbicalho@gmail.com
+
+copyright:          Gustavo Bicalho, 2021
+
+extra-source-files: CHANGELOG.md
+
+library
+  exposed-modules:
+      Freedoms.Free.Church
+      Freedoms.Free.Data
+      Freedoms.Free.FinalClassy
+      Freedoms.Free.FinalReader
+      Freedoms.Freer.Church
+      Freedoms.Freer.Data
+      Freedoms.Freer.FinalClassy
+      Freedoms.Freer.FinalReader
+  other-modules:
+      Freedoms.Free.Examples.Terminal
+      Freedoms.Freer.Common
+      Freedoms.Freer.Examples.Terminal
+      Paths_Freedoms
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
+  build-depends:
+      base >=4.7 && <5
+    , transformers
+  default-language: Haskell2010
+
+executable Freedoms
+    main-is:          Main.hs
+    other-modules:
+    build-depends:    base ^>=4.14.3.0
+    hs-source-dirs:   app
+    default-language: Haskell2010

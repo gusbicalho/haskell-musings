@@ -3,12 +3,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Freer.Data where
+module Freedoms.Freer.Data (Freer, freer, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
 import Data.Kind (Type)
-import Freer.Common (Interpret, RunCont)
+import Freedoms.Freer.Common (Interpret, RunCont)
 
 type Freer :: ((Type -> Type) -> Type -> Type) -> (Type -> Type)
 data Freer f a where
@@ -37,11 +37,11 @@ run ::
   Freer f a ->
   m a
 run mkInterpret = runIt (mkInterpret runIt)
- where
-  runIt :: RunCont (Freer f) f
-  runIt interpret =
-    let go (Pure a) = pure a
-        go (Bind fe mkFreer) = do
-          e <- interpret fe
-          go (mkFreer e)
-     in go
+  where
+    runIt :: RunCont (Freer f) f
+    runIt interpret =
+      let go (Pure a) = pure a
+          go (Bind fe mkFreer) = do
+            e <- interpret fe
+            go (mkFreer e)
+       in go

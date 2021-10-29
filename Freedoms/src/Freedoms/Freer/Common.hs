@@ -4,7 +4,7 @@
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE NoStarIsType #-}
 
-module Freer.Common where
+module Freedoms.Freer.Common where
 
 import Data.Kind (Type)
 
@@ -41,6 +41,7 @@ type Interpret
   m x
 
 type RunCont' :: (Type -> Type) -> ((Type -> Type) -> Type -> Type) -> (Type -> Type) -> Type
+
 type RunCont' free f m =
   forall a.
   Interpret free f m ->
@@ -48,4 +49,5 @@ type RunCont' free f m =
   m a
 
 type RunCont :: (Type -> Type) -> ((Type -> Type) -> Type -> Type) -> Type
+
 type RunCont free f = forall m. Monad m => RunCont' free f m

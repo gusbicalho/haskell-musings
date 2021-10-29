@@ -4,11 +4,10 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Free.FinalClassy (Free, Interpreter (..), free, run) where
+module Freedoms.Free.FinalClassy (Free, Interpreter (..), free, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
-import Control.Monad.Trans.Reader (ReaderT (ReaderT, runReaderT))
 import Data.Kind (Type)
 
 type Free :: (Type -> Type) -> (Type -> Type)

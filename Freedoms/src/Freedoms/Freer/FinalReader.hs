@@ -6,13 +6,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Freer.FinalReader where
+module Freedoms.Freer.FinalReader (Freer, freer, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
 import Control.Monad.Trans.Reader (ReaderT (ReaderT))
 import Data.Kind (Type)
-import Freer.Common (Interpret, RunCont)
+import Freedoms.Freer.Common (Interpret, RunCont)
 
 newtype Interpreted f m a where
   Interpreted :: {runInterpreted :: (forall x. f (Freer f) x -> m x) -> m a} -> Interpreted f m a
@@ -43,7 +43,7 @@ run ::
   Freer f a ->
   m a
 run mkInterpret = runIt (mkInterpret runIt)
- where
-  runIt :: RunCont (Freer f) f
-  runIt interpret ma =
-    runInterpreted (runMF ma) interpret
+  where
+    runIt :: RunCont (Freer f) f
+    runIt interpret ma =
+      runInterpreted (runMF ma) interpret

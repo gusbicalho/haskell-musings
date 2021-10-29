@@ -2,13 +2,11 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Free.Data (Free, free, run) where
+module Freedoms.Free.Data (Free, free, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
 import Data.Kind (Type)
-
--- Free, initial
 
 type Free :: (Type -> Type) -> (Type -> Type)
 data Free f a where
@@ -32,6 +30,6 @@ free = Lift . fmap pure
 
 run :: forall f a m. (Monad m) => (forall x. f x -> m x) -> Free f a -> m a
 run interpret = go
- where
-  go (Pure a) = pure a
-  go (Lift fa) = go =<< interpret fa
+  where
+    go (Pure a) = pure a
+    go (Lift fa) = go =<< interpret fa

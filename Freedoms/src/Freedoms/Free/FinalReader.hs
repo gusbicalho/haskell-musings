@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module Free.FinalReader (Free, free, run) where
+module Freedoms.Free.FinalReader (Free, free, run) where
 
 import Control.Applicative (liftA)
 import Control.Monad (ap)
