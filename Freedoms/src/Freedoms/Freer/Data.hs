@@ -37,11 +37,11 @@ run ::
   Freer f a ->
   m a
 run mkInterpret = runIt (mkInterpret runIt)
-  where
-    runIt :: RunCont (Freer f) f
-    runIt interpret =
-      let go (Pure a) = pure a
-          go (Bind fe mkFreer) = do
-            e <- interpret fe
-            go (mkFreer e)
-       in go
+ where
+  runIt :: RunCont (Freer f) f
+  runIt interpret =
+    let go (Pure a) = pure a
+        go (Bind fe mkFreer) = do
+          e <- interpret fe
+          go (mkFreer e)
+     in go

@@ -23,6 +23,7 @@ instance Functor (Freer f) where
 instance Applicative (Freer f) where
   -- {-# INLINE pure #-}
   pure a = Freer $ \onPure _onBind -> onPure a
+
   -- {-# INLINE (<*>) #-}
   (<*>) = ap
 
@@ -34,11 +35,11 @@ instance Monad (Freer f) where
   -- {-# INLINE (>>=) #-}
   (>>=) :: forall a b. Freer f a -> (a -> Freer f b) -> Freer f b
   Freer runFreerA >>= mkFreerB = runFreerA mkFreerB onBind
-    where
-      onBind :: forall e. f (Freer f) e -> (e -> Freer f a) -> Freer f b
-      onBind fe mkFreerA = bound fe $ \e -> do
-        a <- mkFreerA e
-        mkFreerB a
+   where
+    onBind :: forall e. f (Freer f) e -> (e -> Freer f a) -> Freer f b
+    onBind fe mkFreerA = bound fe $ \e -> do
+      a <- mkFreerA e
+      mkFreerB a
 
 -- {-# INLINE freer #-}
 freer :: f (Freer f) a -> Freer f a
@@ -51,15 +52,15 @@ run ::
   Freer f a ->
   m a
 run mkInterpret = runIt (mkInterpret runIt)
-  where
-    -- {-# INLINE runIt #-}
-    runIt :: RunCont (Freer f) f
-    runIt interpret =
-      let go (Freer runFreer) =
-            runFreer
-              pure
-              ( \fe mkFreer -> do
-                  e <- interpret fe
-                  go (mkFreer e)
-              )
-       in go
+ where
+  -- {-# INLINE runIt #-}
+  runIt :: RunCont (Freer f) f
+  runIt interpret =
+    let go (Freer runFreer) =
+          runFreer
+            pure
+            ( \fe mkFreer -> do
+                e <- interpret fe
+                go (mkFreer e)
+            )
+     in go

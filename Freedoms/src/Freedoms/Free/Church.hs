@@ -25,13 +25,13 @@ instance Functor f => Applicative (Free f) where
 
 instance Functor f => Monad (Free f) where
   Free runMa >>= mkMb = runMa onPure onLift
-    where
-      onPure a = mkMb a
-      onLift fa = lift (fmap (>>= mkMb) fa)
+   where
+    onPure a = mkMb a
+    onLift fa = lift (fmap (>>= mkMb) fa)
 
 run :: forall f a m. (Monad m) => (forall x. f x -> m x) -> Free f a -> m a
 run interpret = go
-  where
-    go (Free runChurch) = runChurch onPure onLift
-    onPure = pure
-    onLift fa = go =<< interpret fa
+ where
+  go (Free runChurch) = runChurch onPure onLift
+  onPure = pure
+  onLift fa = go =<< interpret fa

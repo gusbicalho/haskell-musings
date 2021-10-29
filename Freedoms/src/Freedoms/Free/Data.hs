@@ -30,6 +30,6 @@ free = Lift . fmap pure
 
 run :: forall f a m. (Monad m) => (forall x. f x -> m x) -> Free f a -> m a
 run interpret = go
-  where
-    go (Pure a) = pure a
-    go (Lift fa) = go =<< interpret fa
+ where
+  go (Pure a) = pure a
+  go (Lift fa) = go =<< interpret fa

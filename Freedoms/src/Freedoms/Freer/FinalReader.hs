@@ -43,7 +43,7 @@ run ::
   Freer f a ->
   m a
 run mkInterpret = runIt (mkInterpret runIt)
-  where
-    runIt :: RunCont (Freer f) f
-    runIt interpret ma =
-      runInterpreted (runMF ma) interpret
+ where
+  runIt :: RunCont (Freer f) f
+  runIt interpret ma =
+    runInterpreted (runMF ma) interpret
