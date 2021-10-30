@@ -1,0 +1,18 @@
+# -O2 -fexpose-all-unfoldings -fspecialise-aggressively -flate-specialise
+# INLINEs everywhere
+IOFreeData             2.286s
+StateFreeData          2.272s
+IOFreeChurch           3.139s
+StateFreeChurch        3.961s
+IOFreeFinalReader      0.059s
+StateFreeFinalReader   0.067s
+IOFreeFinalClassy      0.141s
+StateFreeFinalClassy   0.156s
+IOFreerData            7.443s
+StateFreerData         7.318s
+IOFreerChurch          9.218s
+StateFreerChurch       8.188s
+IOFreerFinalReader     0.069s
+StateFreerFinalReader  0.067s
+IOFreerFinalClassy     0.068s
+StateFreerFinalClassy  0.056s

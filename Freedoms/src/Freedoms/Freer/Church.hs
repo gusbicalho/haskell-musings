@@ -17,22 +17,22 @@ newtype Freer f a where
   Freer :: (forall r. (a -> r) -> (forall e. f (Freer f) e -> (e -> Freer f a) -> r) -> r) -> Freer f a
 
 instance Functor (Freer f) where
-  -- {-# INLINE fmap #-}
+  {-# INLINE fmap #-}
   fmap = liftA
 
 instance Applicative (Freer f) where
-  -- {-# INLINE pure #-}
+  {-# INLINE pure #-}
   pure a = Freer $ \onPure _onBind -> onPure a
 
-  -- {-# INLINE (<*>) #-}
+  {-# INLINE (<*>) #-}
   (<*>) = ap
 
--- {-# INLINE bound #-}
+{-# INLINE bound #-}
 bound :: f (Freer f) e -> (e -> Freer f a) -> Freer f a
 bound fe mkFreerA = Freer $ \_onPure onBind -> onBind fe mkFreerA
 
 instance Monad (Freer f) where
-  -- {-# INLINE (>>=) #-}
+  {-# INLINE (>>=) #-}
   (>>=) :: forall a b. Freer f a -> (a -> Freer f b) -> Freer f b
   Freer runFreerA >>= mkFreerB = runFreerA mkFreerB onBind
    where
@@ -41,11 +41,11 @@ instance Monad (Freer f) where
       a <- mkFreerA e
       mkFreerB a
 
--- {-# INLINE freer #-}
+{-# INLINE freer #-}
 freer :: f (Freer f) a -> Freer f a
 freer fa = bound fa pure
 
--- {-# INLINE run #-}
+{-# INLINE run #-}
 run ::
   Monad m =>
   (RunCont (Freer f) f -> Interpret (Freer f) f m) ->
@@ -53,7 +53,7 @@ run ::
   m a
 run mkInterpret = runIt (mkInterpret runIt)
  where
-  -- {-# INLINE runIt #-}
+  {-# INLINE runIt #-}
   runIt :: RunCont (Freer f) f
   runIt interpret =
     let go (Freer runFreer) =

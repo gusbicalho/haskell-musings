@@ -1,8 +1,6 @@
 #! /bin/bash
 cabal clean &> /dev/null
-cabal build \
-    -O2 -fexpose-all-unfoldings -fspecialise-aggressively -flate-specialise \
-    lib:Freedoms exe:Freedoms
+cabal build lib:Freedoms exe:Freedoms
 
 time cabal run -O2 Freedoms -- counter IOFreeData
 time cabal run -O2 Freedoms -- counter StateFreeData

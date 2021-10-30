@@ -23,20 +23,26 @@ newtype Freer f a where
   Freer :: {runMF :: forall m. Monad m => Interpreted f m a} -> Freer f a
 
 instance Functor (Freer f) where
+  {-# INLINE fmap #-}
   fmap = liftA
 
 instance Applicative (Freer f) where
+  {-# INLINE pure #-}
   pure a = Freer (pure a)
+  {-# INLINE (<*>) #-}
   (<*>) = ap
 
 instance Monad (Freer f) where
+  {-# INLINE (>>=) #-}
   Freer ma >>= mkMb = Freer $ do
     a <- ma
     runMF $ mkMb a
 
+{-# INLINE freer #-}
 freer :: f (Freer f) a -> Freer f a
 freer fa = Freer $ Interpreted ($ fa)
 
+{-# INLINE run #-}
 run ::
   Monad m =>
   (RunCont (Freer f) f -> Interpret (Freer f) f m) ->
@@ -44,6 +50,7 @@ run ::
   m a
 run mkInterpret = runIt (mkInterpret runIt)
  where
+  {-# INLINE runIt #-}
   runIt :: RunCont (Freer f) f
   runIt interpret ma =
     runInterpreted (runMF ma) interpret

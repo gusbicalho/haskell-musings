@@ -19,17 +19,22 @@ type Interpreter :: ((Type -> Type) -> Type -> Type) -> (Type -> Type) -> Constr
 class Monad m => Interpreter f m where
   interpret :: Interpret (Freer f) f m
 
+{-# INLINE freer #-}
 freer :: f (Freer f) a -> Freer f a
 freer fa = Freer $ interpret fa
 
 instance Functor (Freer f) where
+  {-# INLINE fmap #-}
   fmap = liftA
 
 instance Applicative (Freer f) where
+  {-# INLINE pure #-}
   pure a = Freer (pure a)
+  {-# INLINE (<*>) #-}
   (<*>) = ap
 
 instance Monad (Freer f) where
+  {-# INLINE (>>=) #-}
   Freer ma >>= mkMb = Freer $ do
     a <- ma
     run $ mkMb a

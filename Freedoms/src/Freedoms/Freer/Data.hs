@@ -16,21 +16,27 @@ data Freer f a where
   Bind :: f (Freer f) a -> (a -> Freer f b) -> Freer f b
 
 instance Functor (Freer f) where
+  {-# INLINE fmap #-}
   fmap = liftA
 
 instance Applicative (Freer f) where
+  {-# INLINE pure #-}
   pure = Pure
+  {-# INLINE (<*>) #-}
   (<*>) = ap
 
 instance Monad (Freer f) where
+  {-# INLINE (>>=) #-}
   (Pure a) >>= mkFreerB = mkFreerB a
   (Bind fe mkFreerA) >>= mkFreerB = Bind fe $ \e -> do
     a <- mkFreerA e
     mkFreerB a
 
+{-# INLINE freer #-}
 freer :: f (Freer f) a -> Freer f a
 freer fa = Bind fa pure
 
+{-# INLINE run #-}
 run ::
   Monad m =>
   (RunCont (Freer f) f -> Interpret (Freer f) f m) ->
@@ -38,6 +44,7 @@ run ::
   m a
 run mkInterpret = runIt (mkInterpret runIt)
  where
+  {-# INLINE runIt #-}
   runIt :: RunCont (Freer f) f
   runIt interpret =
     let go (Pure a) = pure a

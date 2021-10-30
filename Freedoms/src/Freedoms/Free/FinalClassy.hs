@@ -17,17 +17,22 @@ newtype Free f a where
 class Monad m => Interpreter f m where
   interpret :: f a -> m a
 
+{-# INLINE free #-}
 free :: f a -> Free f a
 free fa = Free $ interpret fa
 
 instance Functor (Free f) where
+  {-# INLINE fmap #-}
   fmap = liftA
 
 instance Applicative (Free f) where
+  {-# INLINE pure #-}
   pure a = Free (pure a)
+  {-# INLINE (<*>) #-}
   (<*>) = ap
 
 instance Monad (Free f) where
+  {-# INLINE (>>=) #-}
   Free ma >>= mkMb = Free $ do
     a <- ma
     run $ mkMb a

@@ -1,0 +1,18 @@
+# -O2
+# INLINEs everywhere
+IOFreeData             4.183s
+StateFreeData          3.807s
+IOFreeChurch           7.237s
+StateFreeChurch        7.623s
+IOFreeFinalReader      0.105s
+StateFreeFinalReader   0.180s
+IOFreeFinalClassy      0.067s
+StateFreeFinalClassy   0.067s
+IOFreerData            7.576s
+StateFreerData         7.661s
+IOFreerChurch          8.782s
+StateFreerChurch       9.037s
+IOFreerFinalReader     0.107s
+StateFreerFinalReader  0.143s
+IOFreerFinalClassy     0.071s
+StateFreerFinalClassy  0.089s
