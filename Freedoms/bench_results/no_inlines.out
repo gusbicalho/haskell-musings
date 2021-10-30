@@ -1,0 +1,17 @@
+# -O2
+IOFreeData             6.547s
+StateFreeData          3.867s
+IOFreeChurch           7.189s
+StateFreeChurch        7.342s
+IOFreeFinalReader      0.070s
+StateFreeFinalReader   0.090s
+IOFreeFinalClassy      0.120s
+StateFreeFinalClassy   0.140s
+IOFreerData            7.671s
+StateFreerData         7.419s
+IOFreerChurch          9.129s
+StateFreerChurch       8.910s
+IOFreerFinalReader     0.067s
+StateFreerFinalReader  0.067s
+IOFreerFinalClassy     0.067s
+StateFreerFinalClassy  0.057s

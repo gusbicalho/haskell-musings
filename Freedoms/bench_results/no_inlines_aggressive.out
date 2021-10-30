@@ -1,0 +1,17 @@
+# -O2 -fexpose-all-unfoldings -fspecialise-aggressively -flate-specialise
+IOFreeData             4.136s
+StateFreeData          2.089s
+IOFreeChurch           3.168s
+StateFreeChurch        3.241s
+IOFreeFinalReader      0.074s
+StateFreeFinalReader   0.133s
+IOFreeFinalClassy      0.143s
+StateFreeFinalClassy   0.143s
+IOFreerData            8.353s
+StateFreerData         7.357s
+IOFreerChurch          9.228s
+StateFreerChurch       8.148s
+IOFreerFinalReader     0.068s
+StateFreerFinalReader  0.058s
+IOFreerFinalClassy     0.068s
+StateFreerFinalClassy  0.067s
