@@ -40,7 +40,7 @@ instance Monad (Freer f) where
 
 {-# INLINE freer #-}
 freer :: f (Freer f) a -> Freer f a
-freer fa = Freer $ Interpreted ($ fa)
+freer fa = Freer $ Interpreted (\f -> f fa)
 
 {-# INLINE run #-}
 run ::
