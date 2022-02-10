@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -28,9 +27,9 @@ instance
 
 instance
   {-# OVERLAPPABLE #-}
-  ( KnownNat i,
-    NFoldL (i - 1) v z next,
-    next2 ~ (v -> next)
+  ( KnownNat i
+  , NFoldL (i - 1) v z next
+  , next2 ~ (v -> next)
   ) =>
   NFoldL i v z next2
   where
@@ -69,10 +68,10 @@ instance
 
 instance
   {-# OVERLAPPABLE #-}
-  ( KnownNat i,
-    ComposeAfterNArgs (i - 1) (a -> b) next2 next2',
-    next ~ (v -> next2),
-    next' ~ (v -> next2')
+  ( KnownNat i
+  , ComposeAfterNArgs (i - 1) (a -> b) next2 next2'
+  , next ~ (v -> next2)
+  , next' ~ (v -> next2')
   ) =>
   ComposeAfterNArgs i (a -> b) next next'
   where
@@ -94,10 +93,10 @@ instance
 
 instance
   {-# OVERLAPPABLE #-}
-  ( KnownNat i,
-    ComposeAfterNArgs (i - 1) (z -> z) next next',
-    NFoldR (i - 1) v z next,
-    next2 ~ (v -> next')
+  ( KnownNat i
+  , ComposeAfterNArgs (i - 1) (z -> z) next next'
+  , NFoldR (i - 1) v z next
+  , next2 ~ (v -> next')
   ) =>
   NFoldR i v z next2
   where

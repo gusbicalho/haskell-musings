@@ -1,7 +1,9 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+
 module NFoldUsage where
 
-import NFold
+import NFold ( nfoldr_like, NFoldR(nfoldr) )
 
 xs :: [Int]
 xs = nfoldr @4 (:) ([] @Int) 1 2 3 4
@@ -11,7 +13,6 @@ ys = nfoldr_like @4 (:) 1 2 3 4 ([] @Int)
 
 six :: Int
 six = nfoldr @4 (+) (0 :: Int) 1 2 3 4
-
 
 sixlike :: Int
 sixlike = nfoldr_like @4 (+) 1 2 3 4 (0 :: Int)

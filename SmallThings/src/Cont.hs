@@ -29,7 +29,7 @@ instance Monad (Cont r) where
 
 ex :: Cont String Integer
 ex = do
-  a <- pure 1
+  let a = 1
   b <- cont (\k -> k 10 <> k 20)
   pure $ a + b
 

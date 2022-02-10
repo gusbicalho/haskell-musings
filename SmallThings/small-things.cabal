@@ -23,7 +23,6 @@ library
       Paths_small_things
   hs-source-dirs:
       src
-  default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms TypeApplications
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
   build-depends:
       base >=4.7 && <5
@@ -41,7 +40,6 @@ test-suite test
   hs-source-dirs:
       test
       src
-  default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms TypeApplications
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
   build-depends:
       QuickCheck
