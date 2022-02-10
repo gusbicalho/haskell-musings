@@ -16,6 +16,7 @@ build-type:     Simple
 library
   exposed-modules:
       Cont
+      FirstClassModules
       NFold
       NFoldUsage
   other-modules:
