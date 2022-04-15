@@ -19,6 +19,7 @@ library
       FirstClassModules
       NFold
       NFoldUsage
+      Metaphor
   other-modules:
       Paths_small_things
   hs-source-dirs:
