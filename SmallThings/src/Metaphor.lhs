@@ -8,13 +8,12 @@ van Laarhoven encoding of a Lens:
 > {-# LANGUAGE GADTs #-}
 > {-# LANGUAGE RankNTypes #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TypeOperators #-}
+>
 > module Metaphor where
+>
 > import Control.Applicative (Const(Const, getConst))
 > import qualified Data.Functor.Identity as Identity
-> import qualified Unsafe.Coerce as Unsafe
-> import Data.Type.Equality ((:~:)(Refl))
-
+>
 > type Lens s t a b = forall f. Functor f => (a -> f b) -> (s -> f t)
 > type SimpleLens s a = Lens s s a a
 >
@@ -60,15 +59,18 @@ We can wrap the pair of lenses in a data type and use them as needed:
 > metaphor :: Lens s t a b -> Lens u v b a -> Metaphor s u t v
 > metaphor = MkMetaphor
 >
-> forward :: Metaphor s u t v -> s -> u -> t
-> forward (MkMetaphor ls lu) s u = set ls s (get lu u)
+> oneHand :: Metaphor s u t v -> s -> u -> t
+> oneHand (MkMetaphor ls lu) s u = set ls s (get lu u)
 >
-> backward :: Metaphor s u t v -> s -> u -> v
-> backward (MkMetaphor ls lu) s u = set lu u (get ls s)
+> otherHand :: Metaphor s u t v -> s -> u -> v
+> otherHand (MkMetaphor ls lu) s u = set lu u (get ls s)
+>
+> project :: Metaphor s u t v -> s -> u -> (t, v)
+> project metaphor s u = (oneHand metaphor s u, otherHand metaphor s u)
 
 \## Coin metaphor
 
-If we define a Metaphor in terms of its two operations `forward` and `backward`
+If we define a Metaphor in terms of its two operations `oneHand` and `otherHand`
 (as in `metaphorPair`) we can see that:
 ```(s -> u -> t, s -> u -> v)```
 is isomorphic to
@@ -118,7 +120,7 @@ completely unrelated. As Edward Kmett explains in the
 
 \## Pair-to-pair metaphor
 
-`Coin a t v`, holds a pair of function from `a`. That is isomorphic to a single
+`Coin a t v`, holds a pair of functions from `a`. That is isomorphic to a single
 function returning a pair:
 
 > coinToPairFn :: Coin a t v -> (a -> (t, v))
@@ -127,78 +129,95 @@ function returning a pair:
 > pairFnAsCoin :: (a -> (t, v)) -> Coin a t v
 > pairFnAsCoin toPair = MkCoin (fst . toPair) (snd . toPair)
 
+For `Coin`s representing metaphors, `a` will always be a pair `(s, u)`, and
+the representation of a Metaphor as a function between pairs is given by
+`uncurry . project`.
+
 Thus, `Metaphor s u t v ~ Coin (s, u) t v ~ (s, u) -> (t, v)`.
 Or the simplified version `SimpleMetaphor s u ~ Coin (s, u) s u ~ (s, u) -> (s, u)`.
 
-Notice: The intuition behind `SimpleMetaphor s u` is that we can take aspects of
+The intuition behind `SimpleMetaphor s u` is that we can take aspects of
 `s` to alter `u` and vice-versa, and this is mediated by a pair of `Lens`es.
 This intuition was already lost at `Coin`, but with `(s, u) -> (t, v)` it
-becomes easier to instantiate terms that can never be implemented as `Metaphor`s.
+looks like we might be able to write terms that can never be implemented as
+`Metaphor`s.
 
-We can write terms like this:
+However, as the isomorphism below shows, every function from pairs to pairs
+can, indeed, be expressed as a Metaphor!
 
-> id :: (s, u) -> (s, u)
-> id (s, u) = (s, u)
+> metaphorToPairFn :: Metaphor s u t v -> (s, u) -> (t, v)
+> metaphorToPairFn = uncurry . project
+>
+> pairFnToMetaphor :: forall s u t v. ((s, u) -> (t, v)) -> Metaphor s u t v
+> pairFnToMetaphor pairFn = metaphor ls lu
+>  where
+>   ls :: Lens s t (u -> (t, v))  (s -> (t, v))
+>   ls = lens (curry pairFn) (\s stv -> fst $ stv s)
+>   lu :: Lens u v (s -> (t, v)) (u -> (t, v))
+>   lu = lens (flip $ curry pairFn) (\u utv -> snd $ utv u)
 
-Where `s` and `u` do not mix at all. This does not look like a `Metaphor`!
+I'm not sure those lenses are _lawful_, though, or whether they fit the
+criteria explained by Kmett in his blog post. Future work, I guess?
 
-In `id`, `s` and `u` do not exchange any information. Well, we have a type
-that expresses no information: `()`. So we can, in fact, express this function
-as a pair of `Lens`es with `()` as they focus:
+Let's see some interesting examples of conversion to Metaphor. We know we could
+use `pairFnToMetaphor` above to do this automatically, but hand-crafting the
+code can give us some insight.
 
+Take `id`, for example:
+
+> idPair :: (s, u) -> (s, u)
+> idPair (s, u) = (s, u)
+
+In `idPair`, `s` and `u` `s` and `u` do not mix at all; they do not exchange any
+information. Well, we have a type that expresses no information: `()`. So we
+should be able to express this function as a pair of `Lens`es with `()` as their
+focus:
+
+> -- | Empty focus - no reading nor writing any interesting information
 > unitLens :: SimpleLens a ()
 > unitLens = lens (const ()) const
 >
 > emptyMetaphor :: SimpleMetaphor s u
 > emptyMetaphor = metaphor unitLens unitLens
 
-However, try to find a solution for this one:
+Another interesting one is `swap`:
 
 > swap :: (s, u) -> (u, s)
 > swap (s, u) = (u, s)
+
+Here `s` and `u` switch places, which mean the information from one side of the
+Metaphor completely replaces the other (and vice-versa). So we need to let _all_
+information about a type go through the Metaphor connection, which means that
+the lenses should focus on the entire structures. Such a lens would have this
+type:
+
+> -- | Full focus - allow reading and replacing and entire structure
+> fullLens :: Lens s t s t
+
+Which translates to `forall f. Functor f => (s -> f t) -> (s -> f t)`. We could
+implement this with `lens id (\_ u -> u)`, but there's an even better
+alternative:
+
+> fullLens = id
 >
 > swapMetaphor :: forall s u. Metaphor s u u s
-> swapMetaphor = metaphor ls lu
->  where
->   ls :: Lens s u u s
->   ls = undefined -- ???
->   lu :: Lens u s s u
->   lu = undefined -- ???
+> swapMetaphor = metaphor fullLens fullLens
 
-To build a generic `swapMetaphor` we would need a pair of `Lens`es that can turn
-an `s` into an `u` and vice-versa - for any `s` and `u`! There's no way to build
-a `Lens` like that.
+Now for one last example:
 
-Although... since the focus of each lens never leaves the metaphor, maybe we can
-cheat!?
-
-> swapMetaphorViaUnsafe :: forall s u. Metaphor s u u s
-> swapMetaphorViaUnsafe = metaphor cheat cheat
->  where
->   cheat :: forall a b. Lens a b b a
->   cheat = lens Unsafe.unsafeCoerce Unsafe.unsafeCoerce
-
-GHCi gives the following:
-
-```
-λ> forward swapMetaphorViaUnsafe 'a' (1 :: Int)
-4611686018427387904
-
-λ> backward swapMetaphorViaUnsafe 'a' (1 :: Int)
-'\5764607523034234880'
-
-λ> backward swapMetaphorViaUnsafe ('a', 'b') (1 :: Int)
-([1]    428363 segmentation fault  ghci src/Metaphor.lhs
-```
-
-So no, the cheat does not work ¯\_(ツ)_/¯
-
-Intuitively, the reason we could make `emptyMetaphor` fully generic is that it
-conveyed _zero_ information between `s` and `u`. `SimpleMetaphor s u` encodes a
-two-way path of information between `s` and `u`. It looks like the width of the
-path we can build is limited by the amount of information we have about each
-of its endpoints. If we let `s` and `u` be unconstrained, `emptyMetaphor` is the
-best we can do.
+> dropSnd :: (s, u) -> (s, s)
+> dropSnd (s, _) = (s, s)
+>
+> -- | Allows looking at an entire structure, but no modification
+> shieldLens :: Lens s s s ()
+> shieldLens = lens id const
+>
+> -- | Allows replacing an entire structure, but no reading its contents
+> replaceLens :: Lens s t () t
+> replaceLens = lens (const ()) (\_ s -> s)
+>
+> dropSndMetaphor :: Metaphor s u s s
+> dropSndMetaphor = metaphor shieldLens replaceLens
 
 \## Extending metaphors
 
@@ -211,41 +230,10 @@ We can get new metaphors out of existing metaphors:
     * Thus improving an economy is like baking a cake (outer metaphor)
 
 This suggests that we can use a `Metaphor` to bridge the gap between two
-`Lens`es with different focuses, to build a new `Metaphor`! Of course, to do
-that we will need a different representation:
+`Lens`es with different focuses, to build a new `Metaphor`!
 
-> data Metaphor2 s u t v where
->   MkMetaphor2 ::
->     forall s u t v a b c d.
->     Lens s t a b ->
->     -- Either the two Lenses are directly compatible
->     -- or we have an inner Metaphor
->     Either (a :~: d, c :~: b) (Metaphor2 a c b d) ->
->     Lens u v c d ->
->     Metaphor2 s u t v
-> type SimpleMetaphor2 s u = Metaphor2 s u s u
->
-> metaphor2 :: Lens s t a b -> Lens u v b a -> Metaphor2 s u t v
-> metaphor2 ls lu = MkMetaphor2 ls (Left (Refl, Refl)) lu
->
-> wrapM2 :: Lens s t a b -> Metaphor2 a c b d -> Lens u v c d -> Metaphor2 s u t v
-> wrapM2 ls inner lu = MkMetaphor2 ls (Right inner) lu
->
-> emptyM2 :: Metaphor2 t v t v
-> emptyM2 = metaphor2 unitLens unitLens
->
-> forwardM2 :: Metaphor2 s u t v -> s -> u -> t
-> forwardM2 (MkMetaphor2 ls inner lu) s u =
->   case inner of
->     Left (Refl, Refl) -> set ls s (get lu u)
->     Right inner -> set ls s (forwardM2 inner (get ls s) (get lu u))
->
-> backwardM2 :: Metaphor2 s u t v -> s -> u -> v
-> backwardM2 (MkMetaphor2 ls inner lu) s u =
->   case inner of
->     Left (Refl, Refl) -> set lu u (get ls s)
->     Right inner -> set lu u (backwardM2 inner (get ls s) (get lu u))
->
+> wrap :: Lens p q s t -> Metaphor s u t v -> Lens w x u v -> Metaphor p w q x
+> wrap lpqst (MkMetaphor lstab luvba) lwxuv = metaphor (lpqst . lstab) (lwxuv . luvba)
 
 Thus, our example typechecks!
 
@@ -254,16 +242,16 @@ Thus, our example typechecks!
 > data Cake
 > data Heat
 >
-> economyIsLikeACake :: SimpleMetaphor2 Economy Cake
+> economyIsLikeACake :: SimpleMetaphor Economy Cake
 > economyIsLikeACake =
->   wrapM2 economyHasProductivity productivityIsLikeHeat cakeHasHeat
+>   wrap economyHasProductivity productivityIsLikeHeat cakeHasHeat
 >  where
 >   economyHasProductivity :: SimpleLens Economy Productivity
 >   economyHasProductivity = undefined
 >   cakeHasHeat :: SimpleLens Cake Heat
 >   cakeHasHeat = undefined
->   productivityIsLikeHeat :: SimpleMetaphor2 Productivity Heat
->   productivityIsLikeHeat = emptyM2
+>   productivityIsLikeHeat :: SimpleMetaphor Productivity Heat
+>   productivityIsLikeHeat = emptyMetaphor
 
 \## Composing Metaphors
 
@@ -293,46 +281,79 @@ equivalent to `emptyM2`.
 
 In any case, how can we implement this composition?
 
-I could not find a way to implmenet it with the primitives we have so far
-(although I have not proven it's impossible!), so let's represnet composition
-explicitly for now:
+> composeMetaphors :: forall s t u v w x. Metaphor t v w x -> Metaphor s u t v -> Metaphor s u w x
+> composeMetaphors mtvwx msutv = metaphor lsw lux
+>  where
+>   pairFn (s, u) = let (t, v) = project msutv s u
+>                    in project mtvwx t v
+>   -- I've copied the code from pairFnToMetaphor over here
+>   lsw :: Lens s w (u -> (w, x))  (s -> (w, x))
+>   lsw = lens (curry pairFn) (\s swx -> fst $ swx s)
+>   lux :: Lens u x (s -> (w, x)) (u -> (w, x))
+>   lux = lens (flip $ curry pairFn) (\u uwx -> snd $ uwx u)
 
-> data Metaphor3 s u t v where
->   -- same as Metaphor2
->   MkMetaphor3 ::
->     forall s u t v a b c d.
->     Lens s t a b ->
->     Either (a :~: d, c :~: b) (Metaphor3 a c b d) ->
->     Lens u v c d ->
->     Metaphor3 s u t v
->   ComposeMetaphor3 ::
->     forall s u t v a b.
->     Metaphor3 s u t v ->
->     Metaphor3 t v a b ->
->     Metaphor3 s u a b
-> type SimpleMetaphor3 s u = Metaphor3 s u s u
+We simply project one Metaphor after the other! Then we decompose the resulting
+pair-to-pair function into a pair of `Lens`es that each focus on one partial
+result. I think there's some duplicated computation going on here, so possible
+space for improvement, but this works.
+
+\## Better representation?
+
+`Lens`es have an explicit representation as a product of a getter and setter.
+However, usually we go for the van Laarhoven representation because its more
+efficient. Besides, making `Lens` a type alias mean that libraries can export
+`Lens`es without depending on a lens library.
+
+So far we've implemented `Metaphor` as a product of two lenses. Is there a
+better way?
+
+> type ScottMetaphor s u t v = forall r. (forall a b. Lens s t a b -> Lens u v b a -> r) -> r
 >
-> metaphor3 :: Lens s t a b -> Lens u v b a -> Metaphor3 s u t v
-> metaphor3 ls lu = MkMetaphor3 ls (Left (Refl, Refl)) lu
+> scottMetaphor :: Lens s t a b -> Lens u v b a -> ScottMetaphor s u t v
+> scottMetaphor ls lu = \run -> run ls lu
+
+This is a Scott-encoding of a product of two lenses. It's a promise: give me a
+function that accepts two lenses, and I will call it with two lenses. The
+inner `forall a b` represents the existential quantification of the focus of
+the lenses"you can't know anything about them, except that they match correctly.
+
+This has essentially the same semantics as the actual product encoding we used
+above. GHC may be able to inline it a little better, but we still working with
+a pair of lenses, we can still "pattern match" to access them individually if
+we want (which we did above to implement `wrap`).
+
+Another alternative is to rely on the isomorphism we proved above, and just
+use a function of pairs:
+
+> type ProjectionMetaphor s u t v = (s, u) -> (t, v)
 >
-> wrapM3 :: Lens s t a b -> Metaphor3 a c b d -> Lens u v c d -> Metaphor3 s u t v
-> wrapM3 ls inner lu = MkMetaphor3 ls (Right inner) lu
->
-> emptyM3 :: Metaphor3 t v t v
-> emptyM3 = metaphor3 unitLens unitLens
->
-> forwardM3 :: Metaphor3 s u t v -> s -> u -> t
-> forwardM3 (MkMetaphor3 ls inner lu) s u =
->   case inner of
->     Left (Refl, Refl) -> set ls s (get lu u)
->     Right inner -> set ls s (forwardM3 inner (get ls s) (get lu u))
-> forwardM3 (ComposeMetaphor3 msutv mtvab) s u =
->   forwardM3 mtvab (forwardM3 msutv s u) (backwardM3 msutv s u)
->
-> backwardM3 :: Metaphor3 s u t v -> s -> u -> v
-> backwardM3 (MkMetaphor3 ls inner lu) s u =
->   case inner of
->     Left (Refl, Refl) -> set lu u (get ls s)
->     Right inner -> set lu u (backwardM3 inner (get ls s) (get lu u))
-> backwardM3 (ComposeMetaphor3 msutv mtvab) s u =
->   backwardM3 mtvab (forwardM3 msutv s u) (backwardM3 msutv s u)
+> -- This is essentially an inlined implementation of `project` above
+> projectionMetaphor :: Lens s t a b -> Lens u v b a -> ProjectionMetaphor s u t v
+> projectionMetaphor ls lu = \(s, u) -> (set ls s (get lu u), set lu u (get ls s))
+
+With this representation, `composeMetaphors` becomes simple function
+composition!
+
+> composeProjectionMetaphors ::
+>   ProjectionMetaphor t v w x ->
+>   ProjectionMetaphor s u t v ->
+>   ProjectionMetaphor s u w x
+> composeProjectionMetaphors = (.)
+
+However, `wrap` becomes more involved:
+
+> projectionWrap ::
+>   Lens p q s t ->
+>   ProjectionMetaphor s u t v ->
+>   Lens w x u v ->
+>   ProjectionMetaphor p w q x
+> projectionWrap lpqst metaphor lwxuv (p, w) =
+>    let (t, v) = metaphor (get lpqst p, get lwxuv w)
+>        oneHand = set lpqst p t
+>        otherHand = set lwxuv w v
+>     in (oneHand, otherHand)
+
+Overall, I like `ProjectionMetaphor` best. We avoid any mention to existential
+quantification, simplify composition and avoid introducing new datatypes. Even
+the new `wrap` implementation is clear enough (unlike the previous
+`composeMetaphors` implementation).
