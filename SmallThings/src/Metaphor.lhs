@@ -21,10 +21,13 @@ van Laarhoven encoding of a Lens:
 > lens getter setter run s = setter s <$> run (getter s)
 >
 > get :: Lens s t a b -> s -> a
-> get l s = getConst $ l Const s
+> get l = getConst . l Const
 >
-> set :: Lens s t a b -> s -> b -> t
-> set l s b = Identity.runIdentity $ l (const $ Identity.Identity b) s
+> update :: Lens s t a b -> (a -> b) -> s -> t
+> update l f = Identity.runIdentity . l (Identity.Identity . f)
+>
+> set :: Lens s t a b -> b -> s -> t
+> set l b = update l (const b)
 
 A Lens allows us to view and update a structure `s`/`t` in terms of an aspect
 `a`/`b`.
@@ -47,8 +50,8 @@ This looks like the kind of metaphorical thought found in sentences like this:
 >   Lens u v b a ->
 >   (s -> u -> t, s -> u -> v)
 > metaphorPair ls lu =
->   ( \s u -> set ls s (get lu u)
->   , \s u -> set lu u (get ls s)
+>   ( \s u -> set ls (get lu u) s
+>   , \s u -> set lu (get ls s) u
 >   )
 
 We can wrap the pair of lenses in a data type and use them as needed:
@@ -60,10 +63,10 @@ We can wrap the pair of lenses in a data type and use them as needed:
 > metaphor = MkMetaphor
 >
 > oneHand :: Metaphor s u t v -> s -> u -> t
-> oneHand (MkMetaphor ls lu) s u = set ls s (get lu u)
+> oneHand (MkMetaphor ls lu) s u = set ls (get lu u) s
 >
 > otherHand :: Metaphor s u t v -> s -> u -> v
-> otherHand (MkMetaphor ls lu) s u = set lu u (get ls s)
+> otherHand (MkMetaphor ls lu) s u = set lu (get ls s) u
 >
 > project :: Metaphor s u t v -> s -> u -> (t, v)
 > project metaphor s u = (oneHand metaphor s u, otherHand metaphor s u)
@@ -327,9 +330,9 @@ use a function of pairs:
 
 > type ProjectionMetaphor s u t v = (s, u) -> (t, v)
 >
-> -- This is essentially an inlined implementation of `project` above
+> -- Almost the same as `metaphorPair` above
 > projectionMetaphor :: Lens s t a b -> Lens u v b a -> ProjectionMetaphor s u t v
-> projectionMetaphor ls lu = \(s, u) -> (set ls s (get lu u), set lu u (get ls s))
+> projectionMetaphor ls lu = \(s, u) -> (set ls (get lu u) s, set lu (get ls s) u)
 
 With this representation, `composeMetaphors` becomes simple function
 composition!
@@ -349,8 +352,8 @@ However, `wrap` becomes more involved:
 >   ProjectionMetaphor p w q x
 > projectionWrap lpqst metaphor lwxuv (p, w) =
 >    let (t, v) = metaphor (get lpqst p, get lwxuv w)
->        oneHand = set lpqst p t
->        otherHand = set lwxuv w v
+>        oneHand = set lpqst t p
+>        otherHand = set lwxuv v w
 >     in (oneHand, otherHand)
 
 Overall, I like `ProjectionMetaphor` best. We avoid any mention to existential
