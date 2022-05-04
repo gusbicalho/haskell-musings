@@ -21,6 +21,7 @@ library
       NFoldUsage
       Metaphor
       Structural
+      Structural.Copointed
       Structural.Description
       Structural.Structure
       Structural.Structure.Generic
