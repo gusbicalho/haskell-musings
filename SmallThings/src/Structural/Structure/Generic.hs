@@ -11,6 +11,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Structural.Structure.Generic (GDatatypeAsStructure (..)) where
 
@@ -34,30 +36,31 @@ import Structural.Structure.Records (
   SplitRecord (..),
  )
 import Structural.Utils (ConstructorName)
+import Structural.Copointed (Copointed (copoint))
 
 -- | Representation of a datatype as a Structure
 class GDatatypeAsStructure (t :: k -> Type) where
   type GDatatypeDescription t :: Description Type
-  gToStructure :: t x -> Structure (GDatatypeDescription t)
-  gFromStructure :: Structure (GDatatypeDescription t) -> t x
+  gToStructure :: Applicative f => t x -> Structure f (GDatatypeDescription t)
+  gFromStructure :: Copointed f => Structure f (GDatatypeDescription t) -> t x
 
 -- | Representation of a single constructor as a Structure
 class GConstructorAsStructure (constructor :: k -> Type) where
   type GConstructorDescription constructor :: Description Type
-  gConstructorToStructure :: constructor x -> Structure (GConstructorDescription constructor)
-  gConstructorFromStructure :: Structure (GConstructorDescription constructor) -> constructor x
+  gConstructorToStructure :: Applicative f => constructor x -> Structure f (GConstructorDescription constructor)
+  gConstructorFromStructure :: Copointed f => Structure f (GConstructorDescription constructor) -> constructor x
 
 -- | Representation of a sum of multiple constructors as a VariantS
 class GSumAsVariant (left :: k -> Type) (right :: k -> Type) where
   type GSumDescription left right :: VariantDescription Type
-  gSumToVariant :: (left G.:+: right) x -> VariantS (GSumDescription left right)
-  gSumFromVariant :: VariantS (GSumDescription left right) -> (left G.:+: right) x
+  gSumToVariant :: Applicative f => (left G.:+: right) x -> VariantS f (GSumDescription left right)
+  gSumFromVariant :: Copointed f => VariantS f (GSumDescription left right) -> (left G.:+: right) x
 
 -- | Representation of multiple field selectors as a RecordS
 class GFieldSelectorsAsRecord (t :: k -> Type) where
   type GFieldSelectorsDescription t :: RecordDescription Type
-  gFieldsToRecord :: t x -> RecordS (GFieldSelectorsDescription t)
-  gFieldsFromRecord :: RecordS (GFieldSelectorsDescription t) -> t x
+  gFieldsToRecord :: Applicative f => t x -> RecordS f (GFieldSelectorsDescription t)
+  gFieldsFromRecord :: Copointed f => RecordS f (GFieldSelectorsDescription t) -> t x
 
 -- GDatatypeAsStructure instances
 
@@ -89,7 +92,7 @@ instance GConstructorAsStructure constructor => GDatatypeAsStructure (G.C1 meta 
 -- A single nullary constructor can be represented as Single ()
 instance GConstructorAsStructure (G.C1 meta G.U1) where
   type GConstructorDescription (G.C1 meta G.U1) = 'DescSingle ()
-  gConstructorToStructure (G.M1 _) = Single ()
+  gConstructorToStructure (G.M1 _) = Single (pure ())
   gConstructorFromStructure _ = G.M1 G.U1
 
 -- A constructor with a single unnamed field can be represented as a single
@@ -97,16 +100,16 @@ instance GConstructorAsStructure (G.C1 meta (G.S1 ( 'G.MetaSel 'Nothing su ss ds
   type
     GConstructorDescription (G.C1 meta (G.S1 ( 'G.MetaSel 'Nothing su ss ds) (G.K1 i t))) =
       'DescSingle t
-  gConstructorToStructure (G.M1 (G.M1 (G.K1 t))) = Single t
-  gConstructorFromStructure (Single t) = (G.M1 (G.M1 (G.K1 t)))
+  gConstructorToStructure (G.M1 (G.M1 (G.K1 t))) = Single (pure t)
+  gConstructorFromStructure (Single (copoint -> t)) = (G.M1 (G.M1 (G.K1 t)))
 
 -- A constructor with a single named field can be represented as a variant
 instance GConstructorAsStructure (G.C1 meta (G.S1 ( 'G.MetaSel ( 'Just fieldName) su ss ds) (G.K1 i t))) where
   type
     GConstructorDescription (G.C1 meta (G.S1 ( 'G.MetaSel ( 'Just fieldName) su ss ds) (G.K1 i t))) =
       'DescVariant ( 'VariantD '[ '(fieldName, 'DescSingle t)])
-  gConstructorToStructure (G.M1 (G.M1 (G.K1 t))) = Variant $ VariantHere (Single t)
-  gConstructorFromStructure (Variant (VariantHere (Single t))) = G.M1 (G.M1 (G.K1 t))
+  gConstructorToStructure (G.M1 (G.M1 (G.K1 t))) = Variant $ VariantHere (Single (pure t))
+  gConstructorFromStructure (Variant (VariantHere (Single (copoint -> t)))) = G.M1 (G.M1 (G.K1 t))
 
 -- A constructor with multiple fields can be represented as a record
 instance
@@ -150,16 +153,16 @@ instance
   type
     GFieldSelectorsDescription (G.S1 ( 'G.MetaSel ( 'Just fieldName) su ss ds) (G.K1 i t)) =
       'RecordD '[] '[ '(fieldName, 'DescSingle t)]
-  gFieldsToRecord (G.M1 (G.K1 v)) = RecordConsNamed @fieldName (Single v) RecordNil
-  gFieldsFromRecord (RecordConsNamed (Single v) RecordNil) = G.M1 (G.K1 v)
+  gFieldsToRecord (G.M1 (G.K1 v)) = RecordConsNamed @fieldName (Single (pure v)) RecordNil
+  gFieldsFromRecord (RecordConsNamed (Single (copoint -> v)) RecordNil) = G.M1 (G.K1 v)
 
 -- A single unnamed selector is a single positional record field
 instance GFieldSelectorsAsRecord (G.S1 ( 'G.MetaSel 'Nothing su ss ds) (G.K1 i t)) where
   type
     GFieldSelectorsDescription (G.S1 ( 'G.MetaSel 'Nothing su ss ds) (G.K1 i t)) =
       'RecordD '[ 'DescSingle t] '[]
-  gFieldsToRecord (G.M1 (G.K1 v)) = RecordCons (Single v) RecordNil
-  gFieldsFromRecord (RecordCons (Single v) RecordNil) = G.M1 (G.K1 v)
+  gFieldsToRecord (G.M1 (G.K1 v)) = RecordCons (Single (pure v)) RecordNil
+  gFieldsFromRecord (RecordCons (Single (copoint -> v)) RecordNil) = G.M1 (G.K1 v)
 
 -- GSumAsVariant instances
 

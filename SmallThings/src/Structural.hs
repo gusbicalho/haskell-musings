@@ -8,6 +8,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
@@ -22,20 +23,22 @@
 
 module Structural where
 
+import Data.Functor.Identity (Identity)
 import Data.Kind (Type)
 import Data.List (unfoldr)
 import qualified GHC.Generics as G
 import Generic.Data (Generically (..))
+import Structural.Copointed (Copointed (copoint))
 import Structural.Description (Description (..), Rec, RecordDescription (..), Unit, Var, VariantDescription (..))
-import Structural.Structure (RecordS (..), Structure (..), VariantS (..))
+import Structural.Structure (RecordS (..), Structure (..), VariantS (..), pattern SingleI)
 import Structural.Structure.Generic (GDatatypeAsStructure (..))
 
 type Iso a b = (a -> b, b -> a)
 
 class AsStructure a where
   type StructureRep a :: Description Type
-  toStructure :: a -> Structure (StructureRep a)
-  fromStructure :: Structure (StructureRep a) -> a
+  toStructure :: Applicative f => a -> Structure f (StructureRep a)
+  fromStructure :: Copointed f => Structure f (StructureRep a) -> a
 
 instance
   ( G.Generic a
@@ -49,13 +52,14 @@ instance
 
 instance AsStructure () where
   type StructureRep () = 'DescSingle ()
-  toStructure _ = Single ()
+  toStructure _ = Single (pure ())
   fromStructure _ = ()
 
 -- Examples
 
 a ::
   Structure
+    Identity
     ( 'DescVariant
         ( 'VariantD
             '[ '("[]", 'DescSingle ())
@@ -91,8 +95,8 @@ b () =
  where
   cons x xs =
     Variant . VariantThere . VariantHere $
-      (Record . RecordCons (Single x) . RecordCons xs $ RecordNil)
-  nil = Single $ fromStructure $ (Variant $ VariantHere $ Single ())
+      (Record . RecordCons (SingleI x) . RecordCons xs $ RecordNil)
+  nil = SingleI $ fromStructure $ (Variant $ VariantHere $ SingleI ())
 
 data ListC = End | Cons Char ListC
   deriving (G.Generic, Show)
@@ -111,6 +115,7 @@ b2 = b () :: ListC
 newtype StructuralList t
   = StructuralList
       ( Structure
+          Identity
           ( Var
               '[ '("nil", Unit)
                , '( "cons"
@@ -128,15 +133,15 @@ newtype StructuralList t
 lToSL :: [t] -> StructuralList t
 lToSL = foldr cons nil
  where
-  nil = StructuralList (Variant (VariantHere @"nil" (Single ())))
+  nil = StructuralList (Variant (VariantHere @"nil" (SingleI ())))
   cons x sl =
     StructuralList
       . Variant
       . VariantThere @"nil"
       . VariantHere @"cons"
       . Record
-      . RecordConsNamed @"value" (Single x)
-      . RecordConsNamed @"next" (Single sl)
+      . RecordConsNamed @"value" (SingleI x)
+      . RecordConsNamed @"next" (SingleI sl)
       $ RecordNil
 
 slToL :: StructuralList t -> [t]
@@ -145,7 +150,7 @@ slToL = unfoldr go
   go (StructuralList (Variant sl)) = case sl of
     VariantHere _nil -> Nothing
     VariantThere (VariantHere (Record (Single val `RecordConsNamed` (Single next `RecordConsNamed` _)))) ->
-      Just (val, next)
+      Just (copoint val, copoint next)
 
 x :: StructuralList Char
 x = lToSL ['a', 'b', 'c']

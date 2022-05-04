@@ -33,10 +33,10 @@ import Structural.Utils (IsSameSymbol)
 
 -- | Cons a named field to a Record
 class KnownSymbol name => ConsNamed r name s where
-  consNamed' :: Structure s -> RecordS r -> RecordS (AddNamedRecordField name s r)
+  consNamed' :: Structure f s -> RecordS f r -> RecordS f (AddNamedRecordField name s r)
 
 {-# INLINE consNamed #-}
-consNamed :: forall name s r. ConsNamed r name s => Structure s -> RecordS r -> RecordS (AddNamedRecordField name s r)
+consNamed :: forall name s r f. ConsNamed r name s => Structure f s -> RecordS f r -> RecordS f (AddNamedRecordField name s r)
 consNamed = consNamed' @r @name
 
 instance KnownSymbol name => ConsNamed ( 'RecordD '[] nameds) name s where
@@ -49,7 +49,7 @@ instance (ConsNamed ( 'RecordD morePs nameds) name s) => ConsNamed ( 'RecordD (p
 
 -- | Concatenate two records by concatenating their positional and named fields
 class ConcatRecords r1 r2 where
-  concatRecords :: RecordS r1 -> RecordS r2 -> RecordS (ConcatRecordDescriptions r1 r2)
+  concatRecords :: RecordS f r1 -> RecordS f r2 -> RecordS f (ConcatRecordDescriptions r1 r2)
 
 instance ConcatRecords ( 'RecordD '[] '[]) r2 where
   {-# INLINE concatRecords #-}
@@ -83,7 +83,7 @@ instance
 -- | Extracts part of a record into a separate record, returning that along with leftovers from the original
 class SplitRecord fullRecord toExtract where
   type SplitLeftover fullRecord toExtract :: RecordDescription Type
-  splitRecord :: RecordS fullRecord -> (RecordS toExtract, RecordS (SplitLeftover fullRecord toExtract))
+  splitRecord :: RecordS f fullRecord -> (RecordS f toExtract, RecordS f (SplitLeftover fullRecord toExtract))
 
 instance (toExtract ~ 'RecordD '[] '[]) => SplitRecord ( 'RecordD '[] '[]) toExtract where
   type SplitLeftover ( 'RecordD '[] '[]) toExtract = ( 'RecordD '[] '[])
@@ -152,7 +152,7 @@ instance SplitRecord ( 'RecordD '[] ('(full_name, full_s) : full_moreNameds)) ( 
 
 class SplitOnName (nameMatches :: Bool) fullRecord toExtract where
   type LeftoverOnName nameMatches fullRecord toExtract :: RecordDescription Type
-  splitRecordOnName :: RecordS fullRecord -> (RecordS toExtract, RecordS (LeftoverOnName nameMatches fullRecord toExtract))
+  splitRecordOnName :: RecordS f fullRecord -> (RecordS f toExtract, RecordS f (LeftoverOnName nameMatches fullRecord toExtract))
 
 instance
   ( full_named ~ extr_named
