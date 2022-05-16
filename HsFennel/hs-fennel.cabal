@@ -1,0 +1,17 @@
+cabal-version:      3.0
+name:               hs-fennel
+version:            0.1.0.0
+category:           Demo, Lua
+extra-source-files: resources/fennel.lua
+
+executable hs-fennel-demo
+  hs-source-dirs: app
+  main-is: Main.hs
+  other-modules: Fennel
+  default-language: GHC2021
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
+  build-depends:
+    , base
+    , bytestring
+    , file-embed
+    , hslua
