@@ -1,0 +1,10 @@
+{
+    "editor.tabSize": 2,
+    "editor.detectIndentation": false,
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "files.trimFinalNewlines": true,
+    "haskell.indentationRules.enabled": false,
+    "haskell.formattingProvider": "fourmolu",
+    "editor.autoIndent": "keep"
+}
