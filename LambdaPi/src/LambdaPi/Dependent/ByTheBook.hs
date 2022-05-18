@@ -53,6 +53,38 @@ plus =
   )
     ~: Nat ~> Nat ~> Nat
 
+append :: TermInf
+append =
+  ( Lam $ -- E
+      Lam $ -- m
+        Lam $ -- front :: Vec E m
+          Inf $
+            VecElim
+              #_2
+              ( Lam $ -- k
+                  Lam $ -- kfront
+                    Nat -- n
+                      ~> Vec #_5 #_0 -- back
+                      ~> Vec #_6 (plus .@ #_3 .@ #_1)
+              )
+              ( Lam $ -- n
+                  Lam $ -- back
+                    #_0
+              )
+              ( Lam $ -- k
+                  Lam $ -- x
+                    Lam $ -- xs
+                      Lam $ -- recur
+                        Lam $ -- n
+                          Lam $ -- back
+                            Inf $
+                              Cons #_8 (plus .@ #_5 .@ #_1) #_4 (#_2 .@ #_1 .@ #_0)
+              )
+              #_1
+              #_0
+  )
+    ~: star ~> Nat ~> Vec #_1 #_0 ~> Nat ~> Vec #_3 #_0 ~> Vec #_4 (plus .@ #_3 .@ #_1)
+
 {-
 >>> quote0 . fromResult . typeInf0 [] $ id_
 Inf (Pi (Inf Star) (Inf (Pi (Inf (Bound 0)) (Inf (Bound 1)))))
@@ -77,6 +109,14 @@ Inf (Pi (Inf Nat) (Inf (Pi (Inf Nat) (Inf Nat))))
 
 >>> quote0 . evalInf0 $ plus .@ nat 2 .@ nat 3
 Inf (Succ (Inf (Succ (Inf (Succ (Inf (Succ (Inf (Succ (Inf Zero))))))))))
+
+>>> front = Cons (Inf Nat) (nat 1) (nat 0) $ Inf $ Cons (Inf Nat) (nat 0) (nat 1) $ Inf $ Nil (Inf Nat)
+>>> back = Cons (Inf Nat) (nat 0) (nat 2) $ Inf $ Nil (Inf Nat)
+>>> x = append .@ Nat .@ nat 2 .@ front .@ nat 1 .@ back
+>>> quote0 . fromResult . typeInf0 [] $ x
+>>> quote0 . evalInf0 $ x
+Inf (Vec (Inf Nat) (Inf (Succ (Inf (Succ (Inf (Succ (Inf Zero))))))))
+Inf (Cons (Inf Nat) (Inf (Succ (Inf (Succ (Inf Zero))))) (Inf Zero) (Inf (Cons (Inf Nat) (Inf (Succ (Inf Zero))) (Inf (Succ (Inf Zero))) (Inf (Cons (Inf Nat) (Inf Zero) (Inf (Succ (Inf (Succ (Inf Zero))))) (Inf (Nil (Inf Nat))))))))
 
 -}
 
@@ -148,11 +188,17 @@ data TermInf
   | NatElim TermChk TermChk TermChk TermChk
   | Zero
   | Succ TermChk
+  | -- Vectors
+    Vec TermChk TermChk
+  | Nil TermChk
+  | Cons TermChk TermChk TermChk TermChk
+  | VecElim TermChk TermChk TermChk TermChk TermChk TermChk
   deriving (Eq, Show)
 infixl 3 :@:
 
 data TermChk
-  = Inf TermInf
+  = Tag String TermChk
+  | Inf TermInf
   | Lam TermChk
   deriving (Eq, Show)
 
@@ -169,16 +215,23 @@ data Value
   | VStar
   | VPi Value (Value -> Value)
   | VNeutral Neutral
+  | VTag String Value
   | -- Nats
     VNat
   | VZero
   | VSucc Value
+  | -- Vectors
+    VNil Value
+  | VCons Value Value Value Value
+  | VVec Value Value
 
 data Neutral
   = NFree Name
   | NApp Neutral Value
   | -- Nats
     NNatElim Value Value Value Neutral
+  | -- Vectors
+    NVecElim Value Value Value Value Value Neutral
 
 vfree :: Name -> Value
 vfree name = VNeutral (NFree name)
@@ -214,16 +267,39 @@ evalInf (NatElim motive base step k) env =
         VNeutral k -> VNeutral $ NNatElim (evalChk motive env) base' step' k
         other -> error $ "natElim on non-Nat: " <> show (quote0 other)
    in go (evalChk k env)
+-- Vectors
+evalInf (Vec e size) env = VVec (evalChk e env) (evalChk size env)
+evalInf (Nil e) env = VNil (evalChk e env)
+evalInf (Cons e tailSize v tail) env =
+  VCons
+    (evalChk e env)
+    (evalChk tailSize env)
+    (evalChk v env)
+    (evalChk tail env)
+evalInf (VecElim e mot base step size xs) env =
+  let e' = evalChk e env
+      mot' = evalChk mot env
+      base' = evalChk base env
+      step' = evalChk step env
+      go n = \case
+        VNil _ -> base'
+        VCons _ tailSize x tail ->
+          step' `vapp` tailSize `vapp` x `vapp` tail `vapp` go tailSize tail
+        VNeutral k -> VNeutral $ NVecElim e' mot' base' step' n k
+        other -> error $ "vecElim on non-Vec: " <> show (quote0 other)
+   in go (evalChk size env) (evalChk xs env)
 
 vapp :: Value -> Value -> Value
 vapp (VLam run) arg' = run arg'
 vapp (VNeutral n) arg' = VNeutral (NApp n arg')
 vapp (VPi _ run) arg' = run arg'
+vapp (VTag _ run) arg' = vapp run arg'
 vapp other _ = error $ "Not a function: " <> show (quote0 other)
 
 evalChk :: TermChk -> Env -> Value
 evalChk (Inf term) env = evalInf term env
 evalChk (Lam term) env = VLam $ \arg -> evalChk term (arg : env)
+evalChk (Tag s term) env = VTag s (evalChk term env)
 
 lookupBound :: HasCallStack => Env -> Word -> Value
 lookupBound env i = go env i
@@ -246,9 +322,15 @@ quote n = quoteValue
     VNeutral neutral -> Inf $ quoteNeutral neutral
     VStar -> Inf Star
     VPi domain run -> Inf $ Pi (quoteValue domain) (quoteRun run)
+    VTag tag value -> Tag tag (quoteValue value)
+    -- Nats
     VNat -> Inf Nat
     VZero -> Inf Zero
     VSucc j -> Inf (Succ (quoteValue j))
+    -- Vectors
+    VVec e size -> Inf (Vec (quoteValue e) (quoteValue size))
+    VNil e -> Inf (Nil (quoteValue e))
+    VCons e tailSize x tail -> Inf (Cons (quoteValue e) (quoteValue tailSize) (quoteValue x) (quoteValue tail))
   quoteNeutral = \case
     NFree (Quote k) -> Bound (n - k - 1)
     NFree other -> Free other
@@ -259,6 +341,15 @@ quote n = quoteValue
         (quoteValue base)
         (quoteValue step)
         (Inf (quoteNeutral k))
+    NVecElim e mot base step size xs ->
+      VecElim
+        (quoteValue e)
+        (quoteValue mot)
+        (quoteValue base)
+        (quoteValue step)
+        (quoteValue size)
+        (Inf (quoteNeutral xs))
+
   quoteRun run = quote (succ n) (run $ vfree (Quote n))
 
 -- Type checking
@@ -314,12 +405,14 @@ typeInf i ctx = \case
             , "is a"
             , show (quote0 tipe)
             ]
+  -- Nats
   Nat -> pure VStar
   Zero -> pure VNat
   Succ k -> do
     typeChk i ctx k VNat
     pure VNat
   NatElim mot base step k -> do
+    typeChk i ctx mot (VPi VNat \_ -> VStar)
     let mot' = evalChk0 mot
     typeChk i ctx base $
       mot' `vapp` VZero
@@ -329,6 +422,40 @@ typeInf i ctx = \case
           mot' `vapp` (VSucc l)
     typeChk i ctx k VNat
     pure (mot' `vapp` evalChk0 k)
+  -- Vectors
+  Vec e size -> do
+    typeChk i ctx e VStar
+    typeChk i ctx size VNat
+    pure VStar
+  Nil e -> do
+    typeChk i ctx e VStar
+    pure (VVec (evalChk0 e) VZero)
+  Cons e tailSize x tail -> do
+    typeChk i ctx e VStar
+    let e' = evalChk0 e
+    typeChk i ctx tailSize VNat
+    let tailSize' = evalChk0 tailSize
+    typeChk i ctx x e'
+    typeChk i ctx tail (VVec e' tailSize')
+    pure (VVec e' (VSucc tailSize'))
+  VecElim e mot base step size xs -> do
+    typeChk i ctx e VStar
+    let e' = evalChk0 e
+    typeChk i ctx mot (VPi VNat \size -> VPi (VVec e' size) \_ -> VStar)
+    let mot' = evalChk0 mot
+    typeChk i ctx base $
+      mot' `vapp` VZero `vapp` VNil e'
+    typeChk i ctx step $
+      VPi VNat \l ->
+        VPi e' \x ->
+          VPi (VVec e' l) \xs ->
+            VPi (mot' `vapp` l `vapp` xs) \_ ->
+              mot' `vapp` VSucc l `vapp` VCons e' l x xs
+    typeChk i ctx size VNat
+    let size' = evalChk0 size
+    typeChk i ctx xs (VVec e' size')
+    let tipe = (mot' `vapp` size' `vapp` evalChk0 xs)
+    pure tipe
 
 typeChk :: Word -> Context -> TermChk -> TYPE -> Result ()
 typeChk i ctx = \case
@@ -338,7 +465,9 @@ typeChk i ctx = \case
     let inferred' = quote0 inferred
     unless (expected' == inferred') do
       throwError . unlines $
-        [ "Type mismatch. Expected"
+        [ "Type mismatch on term"
+        , "  " <> show term'
+        , "Expected"
         , "  " <> show expected'
         , "but got"
         , "  " <> show inferred'
@@ -356,13 +485,15 @@ typeChk i ctx = \case
         , "  " <> show (quote0 expected)
         , "but got a function."
         ]
+  Tag _ term -> typeChk i ctx term
 
 subst :: TermInf -> Word -> TermChk -> TermChk
 subst replacement = goChk
  where
   goChk i = \case
-    (Inf term) -> Inf (goInf i term)
-    (Lam body) -> Lam (goChk (succ i) body)
+    Inf term -> Inf (goInf i term)
+    Lam body -> Lam (goChk (succ i) body)
+    Tag s term -> Tag s (goChk i term)
   goInf i = \case
     Ann term tipe -> Ann (goChk i term) (goChk i tipe)
     Bound j
@@ -372,10 +503,23 @@ subst replacement = goChk
     f :@: arg -> goInf i f :@: goChk i arg
     Star -> Star
     Pi domain range -> Pi (goChk i domain) (goChk (succ i) range)
+    -- Nats
     Nat -> Nat
     Zero -> Zero
     Succ k -> Succ (goChk i k)
     NatElim mot base step k -> NatElim (goChk i mot) (goChk i base) (goChk i step) (goChk i k)
+    -- Vectors
+    Vec e size -> Vec (goChk i e) (goChk i size)
+    Nil e -> Nil (goChk i e)
+    Cons e tailSize x tail -> Cons (goChk i e) (goChk i tailSize) (goChk i x) (goChk i tail)
+    VecElim e motive base step size xs ->
+      VecElim
+        (goChk i e)
+        (goChk i motive)
+        (goChk i base)
+        (goChk i step)
+        (goChk i size)
+        (goChk i xs)
 
 throwError :: String -> Result a
 throwError = Left
