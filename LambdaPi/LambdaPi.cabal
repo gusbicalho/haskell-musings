@@ -9,6 +9,7 @@ library
   default-language: GHC2021
   hs-source-dirs: src
   exposed-modules:
+    LambdaPi.Dependent.ByTheBook
     LambdaPi.SimplyTyped.ByTheBook
     LambdaPi.SimplyTyped.Mine
   build-depends:
