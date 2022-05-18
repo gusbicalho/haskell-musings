@@ -38,6 +38,21 @@ env1 = [#y `hasType` #a, #a `hasType` Star]
 env2 :: Context
 env2 = [(#b `hasType` Star)] <> env1
 
+plus :: TermInf
+plus =
+  ( Lam . Inf $ -- m
+      NatElim
+        (Lam . Inf $ Nat ~> Nat)
+        (Lam #_0)
+        ( Lam $ -- #_2 = k
+            Lam $ -- #_1 = recur
+              Lam $ -- #_0 = n
+                suc (#_1 .@ #_0)
+        )
+        #_0
+  )
+    ~: Nat ~> Nat ~> Nat
+
 {-
 >>> quote0 . fromResult . typeInf0 [] $ id_
 Inf (Pi (Inf Star) (Inf (Pi (Inf (Bound 0)) (Inf (Bound 1)))))
@@ -56,6 +71,13 @@ Inf (Free (Global "a"))
 
 >>> quote0 . fromResult $ typeInf0 env2 term2
 Inf (Pi (Inf (Free (Global "b"))) (Inf (Free (Global "b"))))
+
+>>> quote0 . fromResult $ typeInf0 [] plus
+Inf (Pi (Inf Nat) (Inf (Pi (Inf Nat) (Inf Nat))))
+
+>>> quote0 . evalInf0 $ plus .@ nat 2 .@ nat 3
+Inf (Succ (Inf (Succ (Inf (Succ (Inf (Succ (Inf (Succ (Inf Zero))))))))))
+
 -}
 
 -- Sugar (Not in the paper!)
@@ -71,18 +93,29 @@ class TermSugar term where
   star :: term
   (~>) :: TermInf -> TermInf -> term
   (.@) :: TermInf -> TermInf -> term
+  nat :: Word -> term
+  zero :: term
+  suc :: TermInf -> term
 infixr 5 ~>
 
 instance TermSugar TermInf where
   star = Star
   x ~> t = Pi (Inf x) (Inf t)
   f .@ arg = f :@: Inf arg
+  nat = \case
+    0 -> Zero
+    n -> Succ (nat (pred n))
+  zero = Zero
+  suc = Succ . Inf
 infixl 3 .@
 
 instance TermSugar TermChk where
   star = Inf star
   x ~> t = Inf (x ~> t)
   f .@ arg = Inf (f .@ arg)
+  nat = Inf . nat
+  zero = Inf zero
+  suc = Inf . suc
 
 instance KnownSymbol label => IsLabel label Name where
   fromLabel = readName $ symbolVal @label Proxy
@@ -110,6 +143,11 @@ data TermInf
   | Bound Word
   | Free Name
   | TermInf :@: TermChk
+  | -- Nats
+    Nat
+  | NatElim TermChk TermChk TermChk TermChk
+  | Zero
+  | Succ TermChk
   deriving (Eq, Show)
 infixl 3 :@:
 
@@ -131,10 +169,16 @@ data Value
   | VStar
   | VPi Value (Value -> Value)
   | VNeutral Neutral
+  | -- Nats
+    VNat
+  | VZero
+  | VSucc Value
 
 data Neutral
   = NFree Name
   | NApp Neutral Value
+  | -- Nats
+    NNatElim Value Value Value Neutral
 
 vfree :: Name -> Value
 vfree name = VNeutral (NFree name)
@@ -157,12 +201,25 @@ evalInf (Pi domain range) env =
 evalInf (Free name) _ = vfree name
 evalInf (Bound i) env = lookupBound env i
 evalInf (f :@: arg) env = vapp (evalInf f env) (evalChk arg env)
+-- Nats
+evalInf Nat _ = VNat
+evalInf Zero _ = VZero
+evalInf (Succ k) env = VSucc (evalChk k env)
+evalInf (NatElim motive base step k) env =
+  let base' = evalChk base env
+      step' = evalChk step env
+      go = \case
+        VZero -> base'
+        VSucc j -> step' `vapp` j `vapp` go j
+        VNeutral k -> VNeutral $ NNatElim (evalChk motive env) base' step' k
+        other -> error $ "natElim on non-Nat: " <> show (quote0 other)
+   in go (evalChk k env)
 
 vapp :: Value -> Value -> Value
 vapp (VLam run) arg' = run arg'
 vapp (VNeutral n) arg' = VNeutral (NApp n arg')
 vapp (VPi _ run) arg' = run arg'
-vapp VStar _ = error "VStar is not a function!"
+vapp other _ = error $ "Not a function: " <> show (quote0 other)
 
 evalChk :: TermChk -> Env -> Value
 evalChk (Inf term) env = evalInf term env
@@ -182,16 +239,26 @@ quote0 :: Value -> TermChk
 quote0 = quote 0
 
 quote :: Word -> Value -> TermChk
-quote n = \case
-  VLam run -> Lam (quoteRun run)
-  VNeutral neutral -> Inf $ quoteNeutral neutral
-  VStar -> Inf Star
-  VPi domain run -> Inf $ Pi (quote n domain) (quoteRun run)
+quote n = quoteValue
  where
+  quoteValue = \case
+    VLam run -> Lam (quoteRun run)
+    VNeutral neutral -> Inf $ quoteNeutral neutral
+    VStar -> Inf Star
+    VPi domain run -> Inf $ Pi (quoteValue domain) (quoteRun run)
+    VNat -> Inf Nat
+    VZero -> Inf Zero
+    VSucc j -> Inf (Succ (quoteValue j))
   quoteNeutral = \case
     NFree (Quote k) -> Bound (n - k - 1)
     NFree other -> Free other
-    NApp f arg -> quoteNeutral f :@: quote n arg
+    NApp f arg -> quoteNeutral f :@: quoteValue arg
+    NNatElim mot base step k ->
+      NatElim
+        (quoteValue mot)
+        (quoteValue base)
+        (quoteValue step)
+        (Inf (quoteNeutral k))
   quoteRun run = quote (succ n) (run $ vfree (Quote n))
 
 -- Type checking
@@ -247,6 +314,21 @@ typeInf i ctx = \case
             , "is a"
             , show (quote0 tipe)
             ]
+  Nat -> pure VStar
+  Zero -> pure VNat
+  Succ k -> do
+    typeChk i ctx k VNat
+    pure VNat
+  NatElim mot base step k -> do
+    let mot' = evalChk0 mot
+    typeChk i ctx base $
+      mot' `vapp` VZero
+    typeChk i ctx step $
+      VPi VNat \l ->
+        VPi (mot' `vapp` l) \_ ->
+          mot' `vapp` (VSucc l)
+    typeChk i ctx k VNat
+    pure (mot' `vapp` evalChk0 k)
 
 typeChk :: Word -> Context -> TermChk -> TYPE -> Result ()
 typeChk i ctx = \case
@@ -290,6 +372,10 @@ subst replacement = goChk
     f :@: arg -> goInf i f :@: goChk i arg
     Star -> Star
     Pi domain range -> Pi (goChk i domain) (goChk (succ i) range)
+    Nat -> Nat
+    Zero -> Zero
+    Succ k -> Succ (goChk i k)
+    NatElim mot base step k -> NatElim (goChk i mot) (goChk i base) (goChk i step) (goChk i k)
 
 throwError :: String -> Result a
 throwError = Left
