@@ -11,23 +11,6 @@ import LambdaPi.Dependent.MyExtensions.Core
 
 data NatExt
 
-instance
-  ( Extension extSet
-  , Includes (ExtTerm extSet extSet) (TermNat extSet)
-  , Includes (ExtNeutral extSet extSet) (NeutralNat extSet)
-  , Includes (ExtValue extSet extSet) (ValueNat extSet)
-  ) =>
-  TypeExtension NatExt extSet
-  where
-  type ExtTerm NatExt extSet = TermNat extSet
-  type ExtValue NatExt extSet = ValueNat extSet
-  type ExtNeutral NatExt extSet = NeutralNat extSet
-  evalExt = evalNat
-  quoteExt = quoteNat
-  quoteExtNeutral = quoteNeutralNat
-  typeExt = typeNat
-  substExt = substNat
-
 data TermNat ext
   = Nat
   | NatElim (TermChk ext) (TermChk ext) (TermChk ext) (TermChk ext)
@@ -44,6 +27,27 @@ data ValueNat ext
 
 data NeutralNat ext
   = NNatElim (Value ext) (Value ext) (Value ext) (Neutral ext)
+
+instance
+  ( Extension extSet
+  , Includes (ExtTerm extSet extSet) (TermNat extSet)
+  , Includes (ExtNeutral extSet extSet) (NeutralNat extSet)
+  , Includes (ExtValue extSet extSet) (ValueNat extSet)
+  ) =>
+  TypeExtension NatExt extSet
+  where
+  type ExtTerm NatExt extSet = TermNat extSet
+  type ExtValue NatExt extSet = ValueNat extSet
+  type ExtNeutral NatExt extSet = NeutralNat extSet
+  evalExt = evalNat
+  typeExt = typeNat
+  substExt = substNat
+
+instance Extension extSet => Quote (ValueNat extSet) (TermNat extSet) where
+  quote = quoteNat
+
+instance Extension extSet => Quote (NeutralNat extSet) (TermNat extSet) where
+  quote = quoteNeutralNat
 
 -- Sugar
 

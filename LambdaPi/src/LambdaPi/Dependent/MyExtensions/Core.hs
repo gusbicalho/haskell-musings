@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
@@ -27,7 +28,7 @@ module LambdaPi.Dependent.MyExtensions.Core (
   eval,
   eval0,
   vapp,
-  quote,
+  Quote (..),
   quote0,
   checkType,
   inferType,
@@ -186,12 +187,12 @@ lookupBound env i = go env i
 -- Quoting
 
 class Quote value term | value -> term where
-  quote :: Extension ext => Word -> value ext -> term ext
+  quote :: Word -> value -> term
 
-quote0 :: (Quote value term, Extension ext) => value ext -> term ext
+quote0 :: Quote value term => value -> term
 quote0 = quote 0
 
-instance Quote Value TermChk where
+instance Extension ext => Quote (Value ext) (TermChk ext) where
   quote n = go
    where
     go = \case
@@ -199,17 +200,17 @@ instance Quote Value TermChk where
       VNeutral neutral -> Inf $ quote n neutral
       VStar -> Inf Star
       VPi domain run -> Inf $ Pi (go domain) (quoteRun run)
-      VExt ext -> Inf (Ext (quoteExt n ext))
+      VExt ext -> Inf (Ext (quote n ext))
     quoteRun run = quote (succ n) (run $ vfree (Quote n))
 
-instance Quote Neutral TermInf where
+instance Extension ext => Quote (Neutral ext) (TermInf ext) where
   quote n = go
    where
     go = \case
       NFree (Quote k) -> Bound (n - k - 1)
       NFree other -> Free other
       NApp f arg -> go f :@: quote n arg
-      NExt neutralNat -> Ext (quoteExtNeutral n neutralNat)
+      NExt neutralNat -> Ext (quote n neutralNat)
 
 -- Type checking
 
@@ -327,6 +328,8 @@ class
   , Includes (ExtTerm extSet extSet) (ExtTerm ext extSet)
   , Includes (ExtNeutral extSet extSet) (ExtNeutral ext extSet)
   , Includes (ExtValue extSet extSet) (ExtValue ext extSet)
+  , Quote (ExtValue ext extSet) (ExtTerm ext extSet)
+  , Quote (ExtNeutral ext extSet) (ExtTerm ext extSet)
   ) =>
   TypeExtension ext extSet
   where
@@ -334,8 +337,6 @@ class
   type ExtValue ext extSet = t | t -> ext extSet
   type ExtNeutral ext extSet = t | t -> ext extSet
   evalExt :: ExtTerm ext extSet -> Env extSet -> Value extSet
-  quoteExt :: Word -> ExtValue ext extSet -> ExtTerm ext extSet
-  quoteExtNeutral :: Word -> ExtNeutral ext extSet -> ExtTerm ext extSet
   typeExt :: Word -> Context extSet -> ExtTerm ext extSet -> Result (Value extSet)
   substExt :: TermInf extSet -> Word -> ExtTerm ext extSet -> ExtTerm ext extSet
 
@@ -347,10 +348,11 @@ instance (Void ~ extSet) => TypeExtension Void extSet where
   type ExtValue Void extSet = Empty extSet
   type ExtNeutral Void extSet = Empty extSet
   evalExt = \case {}
-  quoteExt _ = \case {}
-  quoteExtNeutral _ = \case {}
   typeExt _ _ = \case {}
   substExt _ _ = \case {}
+
+instance Quote (Empty Void) (Empty Void) where
+  quote _ = \case {}
 
 instance
   ( TypeExtension a extSet
@@ -358,6 +360,8 @@ instance
   , Includes (ExtTerm extSet extSet) (ExtTerm (Either a b) extSet)
   , Includes (ExtNeutral extSet extSet) (ExtNeutral (Either a b) extSet)
   , Includes (ExtValue extSet extSet) (ExtValue (Either a b) extSet)
+  , Quote (ExtValue (Either a b) extSet) (ExtTerm (Either a b) extSet)
+  , Quote (ExtNeutral (Either a b) extSet) (ExtTerm (Either a b) extSet)
   ) =>
   TypeExtension (Either a b) extSet
   where
@@ -365,7 +369,40 @@ instance
   type ExtValue (Either a b) extSet = Either (ExtValue a extSet) (ExtValue b extSet)
   type ExtNeutral (Either a b) extSet = Either (ExtNeutral a extSet) (ExtNeutral b extSet)
   evalExt = either evalExt evalExt
-  quoteExt n = either (Left . quoteExt n) (Right . quoteExt n)
-  quoteExtNeutral n = either (Left . quoteExtNeutral n) (Right . quoteExtNeutral n)
   typeExt n ctx = either (typeExt n ctx) (typeExt n ctx)
   substExt r n = either (Left . substExt r n) (Right . substExt r n)
+
+instance
+  ( TypeExtension a extSet
+  , TypeExtension b extSet
+  , aTerm ~ ExtTerm a extSet
+  , bTerm ~ ExtTerm b extSet
+  , QuoteDispatch a (TyEq aVal (ExtNeutral a extSet)) aVal aTerm
+  , QuoteDispatch b (TyEq bVal (ExtNeutral b extSet)) bVal bTerm
+  ) =>
+  Quote
+    (Either aVal bVal)
+    (Either aTerm bTerm)
+  where
+  quote n = either (Left . quote @aVal n) (Right . quote @bVal n)
+
+type TyEq :: Type -> Type -> Bool
+type family TyEq a b where
+  TyEq a a = 'True
+  TyEq _ _ = 'False
+
+class (Quote value term) => QuoteDispatch ext isNeutral value term | value -> ext term
+instance
+  ( TypeExtension ext extSet
+  , value ~ ExtValue ext extSet
+  , term ~ ExtTerm ext extSet
+  , Quote value term
+  ) =>
+  QuoteDispatch ext 'False value term
+instance
+  ( value ~ ExtNeutral ext extSet
+  , term ~ ExtTerm ext extSet
+  , TypeExtension ext extSet
+  , Quote value term
+  ) =>
+  QuoteDispatch ext 'True value term

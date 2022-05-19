@@ -12,24 +12,6 @@ import LambdaPi.Dependent.MyExtensions.Nat
 
 data VecExt
 
-instance
-  ( Extension extSet
-  , TypeExtension NatExt extSet
-  , Includes (ExtTerm extSet extSet) (TermVec extSet)
-  , Includes (ExtNeutral extSet extSet) (NeutralVec extSet)
-  , Includes (ExtValue extSet extSet) (ValueVec extSet)
-  ) =>
-  TypeExtension VecExt extSet
-  where
-  type ExtTerm VecExt extSet = TermVec extSet
-  type ExtValue VecExt extSet = ValueVec extSet
-  type ExtNeutral VecExt extSet = NeutralVec extSet
-  evalExt = evalVec
-  quoteExt = quoteVec
-  quoteExtNeutral = quoteNeutralVec
-  typeExt = typeVec
-  substExt = substVec
-
 data TermVec ext
   = Vec (TermChk ext) (TermChk ext)
   | Nil (TermChk ext)
@@ -46,6 +28,30 @@ data ValueVec ext
 
 data NeutralVec ext
   = NVecElim (Value ext) (Value ext) (Value ext) (Value ext) (Value ext) (Neutral ext)
+
+instance
+  ( Extension extSet
+  , TypeExtension NatExt extSet
+  , Includes (ExtTerm extSet extSet) (TermVec extSet)
+  , Includes (ExtNeutral extSet extSet) (NeutralVec extSet)
+  , Includes (ExtValue extSet extSet) (ValueVec extSet)
+  ) =>
+  TypeExtension VecExt extSet
+  where
+  type ExtTerm VecExt extSet = TermVec extSet
+  type ExtValue VecExt extSet = ValueVec extSet
+  type ExtNeutral VecExt extSet = NeutralVec extSet
+  evalExt = evalVec
+  typeExt = typeVec
+  substExt = substVec
+
+instance Extension extSet => Quote (ValueVec extSet) (TermVec extSet) where
+  quote = quoteVec
+
+instance Extension extSet => Quote (NeutralVec extSet) (TermVec extSet) where
+  quote = quoteNeutralVec
+
+-- Impls
 
 evalVec ::
   forall extSet.
