@@ -10,6 +10,11 @@ library
   hs-source-dirs: src
   exposed-modules:
     LambdaPi.Dependent.ByTheBook
+    LambdaPi.Dependent.MyExtensions.Core
+    LambdaPi.Dependent.MyExtensions.Examples
+    LambdaPi.Dependent.MyExtensions.Includes
+    LambdaPi.Dependent.MyExtensions.Nat
+    LambdaPi.Dependent.MyExtensions.Vec
     LambdaPi.SimplyTyped.ByTheBook
     LambdaPi.SimplyTyped.Mine
   build-depends:
