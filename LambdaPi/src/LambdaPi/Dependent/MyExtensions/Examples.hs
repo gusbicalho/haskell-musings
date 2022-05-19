@@ -107,7 +107,7 @@ Inf (Pi (Inf (Free (Global "b"))) (Inf (Free (Global "b"))))
 >>> quote0 . fromResult $ inferType0 @NatExt [] plus
 Inf (Pi (Inf (Ext Nat)) (Inf (Pi (Inf (Ext Nat)) (Inf (Ext Nat)))))
 
->>> quote0 . eval0 @TermInf @NatExt $ plus .@ nat 2 .@ nat 3
+>>> quote0 . eval0 @(TermInf NatExt) $ plus .@ nat 2 .@ nat 3
 Inf (Ext (Succ (Inf (Ext (Succ (Inf (Ext (Succ (Inf (Ext (Succ (Inf (Ext (Succ (Inf (Ext Zero))))))))))))))))
 
 >>> front = ext $ Cons (Inf (ext Nat)) (nat 1) (nat 0) $ Inf . ext $ Cons (Inf (ext Nat)) (nat 0) (nat 1) $ Inf . ext $ Nil (Inf (ext Nat))

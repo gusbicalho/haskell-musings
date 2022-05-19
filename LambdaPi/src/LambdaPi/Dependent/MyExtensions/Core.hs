@@ -148,13 +148,13 @@ vfree name = VNeutral (NFree name)
 
 type Env ext = [(Value ext)]
 
-class Eval term where
-  eval :: Extension ext => term ext -> Env ext -> Value ext
+class Extension ext => Eval term ext | term -> ext where
+  eval :: term -> Env ext -> Value ext
 
-eval0 :: (Eval term, TypeExtension ext ext) => term ext -> Value ext
+eval0 :: Eval term ext => term -> Value ext
 eval0 term = eval term []
 
-instance Eval TermInf where
+instance Extension ext => Eval (TermInf ext) ext where
   eval term env = case term of
     (Ann term _) -> eval term env
     Star -> VStar
@@ -163,9 +163,9 @@ instance Eval TermInf where
     (Free name) -> vfree name
     (Bound i) -> lookupBound env i
     (f :@: arg) -> vapp (eval f env) (eval arg env)
-    (Ext ext) -> evalExt ext env
+    (Ext ext) -> eval ext env
 
-instance Eval TermChk where
+instance Extension ext => Eval (TermChk ext) ext where
   eval term env = case term of
     (Inf term) -> eval term env
     (Lam term) -> VLam $ \arg -> eval term (arg : env)
@@ -330,13 +330,13 @@ class
   , Includes (ExtValue extSet extSet) (ExtValue ext extSet)
   , Quote (ExtValue ext extSet) (ExtTerm ext extSet)
   , Quote (ExtNeutral ext extSet) (ExtTerm ext extSet)
+  , Eval (ExtTerm ext extSet) extSet
   ) =>
   TypeExtension ext extSet
   where
   type ExtTerm ext extSet = t | t -> ext extSet
   type ExtValue ext extSet = t | t -> ext extSet
   type ExtNeutral ext extSet = t | t -> ext extSet
-  evalExt :: ExtTerm ext extSet -> Env extSet -> Value extSet
   typeExt :: Word -> Context extSet -> ExtTerm ext extSet -> Result (Value extSet)
   substExt :: TermInf extSet -> Word -> ExtTerm ext extSet -> ExtTerm ext extSet
 
@@ -347,12 +347,14 @@ instance (Void ~ extSet) => TypeExtension Void extSet where
   type ExtTerm Void extSet = Empty extSet
   type ExtValue Void extSet = Empty extSet
   type ExtNeutral Void extSet = Empty extSet
-  evalExt = \case {}
   typeExt _ _ = \case {}
   substExt _ _ = \case {}
 
 instance Quote (Empty Void) (Empty Void) where
   quote _ = \case {}
+
+instance Eval (Empty Void) Void where
+  eval t _ = case t of {}
 
 instance
   ( TypeExtension a extSet
@@ -368,9 +370,18 @@ instance
   type ExtTerm (Either a b) extSet = Either (ExtTerm a extSet) (ExtTerm b extSet)
   type ExtValue (Either a b) extSet = Either (ExtValue a extSet) (ExtValue b extSet)
   type ExtNeutral (Either a b) extSet = Either (ExtNeutral a extSet) (ExtNeutral b extSet)
-  evalExt = either evalExt evalExt
   typeExt n ctx = either (typeExt n ctx) (typeExt n ctx)
   substExt r n = either (Left . substExt r n) (Right . substExt r n)
+
+instance
+  ( (Either aTerm bTerm) ~ ExtTerm (Either a b) extSet
+  , Extension extSet
+  , TypeExtension a extSet
+  , TypeExtension b extSet
+  ) =>
+  Eval (Either aTerm bTerm) extSet
+  where
+  eval = either eval eval
 
 instance
   ( TypeExtension a extSet

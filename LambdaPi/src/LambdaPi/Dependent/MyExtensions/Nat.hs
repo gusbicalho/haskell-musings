@@ -39,9 +39,11 @@ instance
   type ExtTerm NatExt extSet = TermNat extSet
   type ExtValue NatExt extSet = ValueNat extSet
   type ExtNeutral NatExt extSet = NeutralNat extSet
-  evalExt = evalNat
   typeExt = typeNat
   substExt = substNat
+
+instance TypeExtension NatExt ext => Eval (TermNat ext) ext where
+  eval = evalNat
 
 instance Extension extSet => Quote (ValueNat extSet) (TermNat extSet) where
   quote = quoteNat
