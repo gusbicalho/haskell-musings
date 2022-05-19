@@ -24,8 +24,7 @@ module LambdaPi.Dependent.MyExtensions.Core (
   Env,
   Context,
   Result,
-  Eval,
-  eval,
+  Eval (..),
   eval0,
   vapp,
   Quote (..),
@@ -33,7 +32,7 @@ module LambdaPi.Dependent.MyExtensions.Core (
   checkType,
   inferType,
   inferType0,
-  subst,
+  Subst (..),
   TermSugar (..),
   hasType,
   (~:),
@@ -296,25 +295,32 @@ checkType i ctx = \case
         , "but got a function."
         ]
 
-subst :: Extension ext => (TermInf ext) -> Word -> (TermChk ext) -> (TermChk ext)
-subst replacement = goChk
- where
-  goChk i = \case
-    Inf term -> Inf (goInf i term)
-    Lam body -> Lam (goChk (succ i) body)
-  goInf i = \case
-    Ann term tipe -> Ann (goChk i term) (goChk i tipe)
-    Bound j
-      | i == j -> replacement
-      | otherwise -> Bound j
-    Free y -> Free y
-    f :@: arg -> goInf i f :@: goChk i arg
-    Star -> Star
-    Pi domain range -> Pi (goChk i domain) (goChk (succ i) range)
-    Ext ext -> Ext (substExt replacement i ext)
-
 throwError :: String -> Result a
 throwError = Left
+
+class Subst term ext | term -> ext where
+  subst :: Extension ext => TermInf ext -> Word -> term -> term
+instance Subst (TermChk ext) ext where
+  subst replacement = go
+   where
+    go i = \case
+      Lam body -> Lam (go (succ i) body)
+      Inf term -> Inf (subst @(TermInf ext) replacement i term)
+
+instance Subst (TermInf ext) ext where
+  subst replacement = go
+   where
+    go i = \case
+      Ann term tipe -> Ann (goChk i term) (goChk i tipe)
+      Bound j
+        | i == j -> replacement
+        | otherwise -> Bound j
+      Free y -> Free y
+      f :@: arg -> go i f :@: goChk i arg
+      Star -> Star
+      Pi domain range -> Pi (goChk i domain) (goChk (succ i) range)
+      Ext ext -> Ext (subst replacement i ext)
+    goChk i = subst @(TermChk ext) replacement i
 
 -- Extension
 
@@ -331,6 +337,7 @@ class
   , Quote (ExtValue ext extSet) (ExtTerm ext extSet)
   , Quote (ExtNeutral ext extSet) (ExtTerm ext extSet)
   , Eval (ExtTerm ext extSet) extSet
+  , Subst (ExtTerm ext extSet) extSet
   ) =>
   TypeExtension ext extSet
   where
@@ -338,7 +345,6 @@ class
   type ExtValue ext extSet = t | t -> ext extSet
   type ExtNeutral ext extSet = t | t -> ext extSet
   typeExt :: Word -> Context extSet -> ExtTerm ext extSet -> Result (Value extSet)
-  substExt :: TermInf extSet -> Word -> ExtTerm ext extSet -> ExtTerm ext extSet
 
 data Empty extSet
   deriving (Eq, Show)
@@ -348,13 +354,15 @@ instance (Void ~ extSet) => TypeExtension Void extSet where
   type ExtValue Void extSet = Empty extSet
   type ExtNeutral Void extSet = Empty extSet
   typeExt _ _ = \case {}
-  substExt _ _ = \case {}
 
 instance Quote (Empty Void) (Empty Void) where
   quote _ = \case {}
 
 instance Eval (Empty Void) Void where
   eval t _ = case t of {}
+
+instance Subst (Empty Void) Void where
+  subst _ _ = \case {}
 
 instance
   ( TypeExtension a extSet
@@ -371,7 +379,6 @@ instance
   type ExtValue (Either a b) extSet = Either (ExtValue a extSet) (ExtValue b extSet)
   type ExtNeutral (Either a b) extSet = Either (ExtNeutral a extSet) (ExtNeutral b extSet)
   typeExt n ctx = either (typeExt n ctx) (typeExt n ctx)
-  substExt r n = either (Left . substExt r n) (Right . substExt r n)
 
 instance
   ( (Either aTerm bTerm) ~ ExtTerm (Either a b) extSet
@@ -382,6 +389,16 @@ instance
   Eval (Either aTerm bTerm) extSet
   where
   eval = either eval eval
+
+instance
+  ( (Either aTerm bTerm) ~ ExtTerm (Either a b) extSet
+  , Extension extSet
+  , TypeExtension a extSet
+  , TypeExtension b extSet
+  ) =>
+  Subst (Either aTerm bTerm) extSet
+  where
+  subst r n = either (Left . subst r n) (Right . subst r n)
 
 instance
   ( TypeExtension a extSet

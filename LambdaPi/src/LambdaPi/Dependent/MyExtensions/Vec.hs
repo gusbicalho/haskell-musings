@@ -42,10 +42,12 @@ instance
   type ExtValue VecExt extSet = ValueVec extSet
   type ExtNeutral VecExt extSet = NeutralVec extSet
   typeExt = typeVec
-  substExt = substVec
 
 instance TypeExtension VecExt ext => Eval (TermVec ext) ext where
   eval = evalVec
+
+instance TypeExtension VecExt ext => Subst (TermVec ext) ext where
+  subst = substVec
 
 instance Extension extSet => Quote (ValueVec extSet) (TermVec extSet) where
   quote = quoteVec
