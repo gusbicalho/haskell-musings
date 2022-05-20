@@ -150,19 +150,79 @@ vfree name = VNeutral (NFree name)
 
 type Extension a = TypeExtension a a
 
+{- | A TypeExtension instance has two type parameters:
+  * `ext`: The first parameter is a type that names the extension being
+    implemented. For example, the LambdaPi.Dependent.MyExtensions.NatExt
+    type names the extension of the calculus with Nats.
+  * `extSet`: The second parameter is the name of the set of extensions
+    used in some specific usage of the calculus. Concretely, this could
+    be:
+      - the name of a single extension, such as `NatExt`
+      - the name of a sum of extensions, such as `Either NatExt VecExt`
+
+A TypeExtension instance may add constraints to the `extSet` parameter,
+for example if it cannot work unless another extension is also included.
+Some examples:
+  * `instance TypeExtension NatExt extSet where`
+    implements an extension named `NatExt` that can be used alongside any other
+    extension.
+  * `instance (TypeExtension NatExt extSet) => TypeExtension VecExt extSet`
+    implements an extension named `VecExt` that requires that the `NatExt`
+    extension also be included in the calculus.
+  * `instance TypeExtension Foo Foo`
+    implements an extension named `Foo` that call only be used alone, never
+    alongside other extensions (because it fixes extSet = Foo).
+
+In any case, the `extSet` must be a valid and complete TypeExtension, in the
+sense that it can be used on its own. This restriction is implemented by the
+first superclass constraint: `TypeExtension extSet extSet`.
+For comparison, the `VecExt` extension is not complete in this sense, since it
+requires the NatExt extension. Therefore, there is no instance for
+`TypeExtension VecExt VecExt`.
+
+# `Includes` superclasses:
+
+The `Includes` class represents the ability to inject a datatype into a larger
+sum type, or to project from a sum type into one of its components. This ability
+is necessary when building and operating on Terms and Values, so that datatypes
+that belong to one specific extension can be mixed with datatypes from other
+extensions, all in a single big sum type.
+
+For example, the constraint
+`Includes (ExtTerm extSet extSet) (ExtTerm ext extSet)` means that the language
+of Terms of the extension `ext` can be included in the language of Terms of
+`extSet`.
+
+As a more concrete example, the following instance exists:
+```
+  Includes
+    (ExtTerm (Either NatExt VecExt) (Either NatExt VecExt))
+    (ExtTerm NatExt (Either NatExt VecExt))
+```
+If we simplify the `ExtTerm` type family applications, we get the following:
+```
+  Includes
+    (Either
+      (TermNat (Either NatExt VecExt))
+      (TermVec (Either NatExt VecExt)))
+    (TermNat (Either NatExt VecExt))
+```
+Which tells us that values of type `TermNat ...` can be injected into the sum
+`Either (TermNat ...) (TermVec ...)`.
+-}
 type TypeExtension :: Type -> Type -> Constraint
 class
-  ( Eq (ExtTerm ext extSet)
-  , Show (ExtTerm ext extSet)
-  , Extension extSet
+  ( TypeExtension extSet extSet
   , Includes (ExtTerm extSet extSet) (ExtTerm ext extSet)
   , Includes (ExtNeutral extSet extSet) (ExtNeutral ext extSet)
   , Includes (ExtValue extSet extSet) (ExtValue ext extSet)
+  , Eq (ExtTerm ext extSet)
+  , Show (ExtTerm ext extSet)
+  , Eval (ExtTerm ext extSet) extSet
+  , InferType (ExtTerm ext extSet) extSet
+  , Subst (ExtTerm ext extSet) extSet
   , Quote (ExtValue ext extSet) (ExtTerm ext extSet)
   , Quote (ExtNeutral ext extSet) (ExtTerm ext extSet)
-  , Eval (ExtTerm ext extSet) extSet
-  , Subst (ExtTerm ext extSet) extSet
-  , InferType (ExtTerm ext extSet) extSet
   ) =>
   TypeExtension ext extSet
   where
