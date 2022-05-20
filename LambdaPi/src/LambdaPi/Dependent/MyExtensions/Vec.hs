@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -8,6 +9,7 @@
 module LambdaPi.Dependent.MyExtensions.Vec where
 
 import LambdaPi.Dependent.MyExtensions.Core
+import LambdaPi.Dependent.MyExtensions.Includes (IncludesSelf (..))
 import LambdaPi.Dependent.MyExtensions.Nat
 
 data VecExt
@@ -17,6 +19,7 @@ data TermVec ext
   | Nil (TermChk ext)
   | Cons (TermChk ext) (TermChk ext) (TermChk ext) (TermChk ext)
   | VecElim (TermChk ext) (TermChk ext) (TermChk ext) (TermChk ext) (TermChk ext) (TermChk ext)
+  deriving (Includes (TermVec ext)) via IncludesSelf (TermVec ext)
 
 deriving stock instance Eq (TermChk ext) => Eq (TermVec ext)
 deriving stock instance Show (TermChk ext) => Show (TermVec ext)
@@ -25,9 +28,11 @@ data ValueVec ext
   = VVecT (Value ext) (Value ext)
   | VNil (Value ext)
   | VCons (Value ext) (Value ext) (Value ext) (Value ext)
+  deriving (Includes (ValueVec ext)) via IncludesSelf (ValueVec ext)
 
 data NeutralVec ext
   = NVecElim (Value ext) (Value ext) (Value ext) (Value ext) (Value ext) (Neutral ext)
+  deriving (Includes (NeutralVec ext)) via IncludesSelf (NeutralVec ext)
 
 instance
   ( Extension extSet
@@ -41,10 +46,17 @@ instance
   type ExtTerm VecExt extSet = TermVec extSet
   type ExtValue VecExt extSet = ValueVec extSet
   type ExtNeutral VecExt extSet = NeutralVec extSet
-  typeExt = typeVec
 
 instance TypeExtension VecExt ext => Eval (TermVec ext) ext where
   eval = evalVec
+
+instance
+  ( TypeExtension VecExt ext
+  , TypeExtension NatExt ext
+  ) =>
+  InferType (TermVec ext) ext
+  where
+  inferType = inferTypeVec
 
 instance TypeExtension VecExt ext => Subst (TermVec ext) ext where
   subst = substVec
@@ -109,7 +121,7 @@ quoteNeutralVec n = \case
       (quote n size)
       (quote n (VNeutral xs))
 
-typeVec ::
+inferTypeVec ::
   forall ext.
   ( TypeExtension NatExt ext
   , TypeExtension VecExt ext
@@ -118,7 +130,7 @@ typeVec ::
   (Context ext) ->
   (TermVec ext) ->
   Result (Value ext)
-typeVec i ctx = \case
+inferTypeVec i ctx = \case
   Vec e size -> do
     checkType i ctx e VStar
     checkType i ctx size vNatT

@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -8,6 +9,7 @@
 module LambdaPi.Dependent.MyExtensions.Nat where
 
 import LambdaPi.Dependent.MyExtensions.Core
+import LambdaPi.Dependent.MyExtensions.Includes (IncludesSelf (..))
 
 data NatExt
 
@@ -16,6 +18,7 @@ data TermNat ext
   | NatElim (TermChk ext) (TermChk ext) (TermChk ext) (TermChk ext)
   | Zero
   | Succ (TermChk ext)
+  deriving (Includes (TermNat ext)) via IncludesSelf (TermNat ext)
 
 deriving stock instance Eq (TermChk ext) => Eq (TermNat ext)
 deriving stock instance Show (TermChk ext) => Show (TermNat ext)
@@ -24,9 +27,11 @@ data ValueNat ext
   = VNatT
   | VZero
   | VSucc (Value ext)
+  deriving (Includes (ValueNat ext)) via IncludesSelf (ValueNat ext)
 
 data NeutralNat ext
   = NNatElim (Value ext) (Value ext) (Value ext) (Neutral ext)
+  deriving (Includes (NeutralNat ext)) via IncludesSelf (NeutralNat ext)
 
 instance
   ( Extension extSet
@@ -39,10 +44,12 @@ instance
   type ExtTerm NatExt extSet = TermNat extSet
   type ExtValue NatExt extSet = ValueNat extSet
   type ExtNeutral NatExt extSet = NeutralNat extSet
-  typeExt = typeNat
 
 instance TypeExtension NatExt ext => Eval (TermNat ext) ext where
   eval = evalNat
+
+instance TypeExtension NatExt ext => InferType (TermNat ext) ext where
+  inferType = inferTypeNat
 
 instance TypeExtension NatExt ext => Subst (TermNat ext) ext where
   subst = substNat
@@ -108,7 +115,7 @@ quoteNeutralNat n = \case
       (quote n step)
       (quote n (VNeutral k))
 
-typeNat ::
+inferTypeNat ::
   forall ext.
   ( TypeExtension NatExt ext
   ) =>
@@ -116,7 +123,7 @@ typeNat ::
   (Context ext) ->
   (TermNat ext) ->
   Result (Value ext)
-typeNat i ctx = \case
+inferTypeNat i ctx = \case
   Nat -> pure VStar
   Zero -> pure vNatT
   Succ k -> do

@@ -13,6 +13,9 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{- | Code here based on the on code from the paper,  but refactor to allow
+ flexibly adding extensions
+-}
 module LambdaPi.Dependent.MyExtensions.Core (
   TermInf (..),
   TermChk (..),
@@ -30,7 +33,7 @@ module LambdaPi.Dependent.MyExtensions.Core (
   Quote (..),
   quote0,
   checkType,
-  inferType,
+  InferType (..),
   inferType0,
   Subst (..),
   TermSugar (..),
@@ -143,7 +146,29 @@ data Neutral ext
 vfree :: Name -> (Value ext)
 vfree name = VNeutral (NFree name)
 
--- Evaluation
+-- Extension classes
+
+type Extension a = TypeExtension a a
+
+type TypeExtension :: Type -> Type -> Constraint
+class
+  ( Eq (ExtTerm ext extSet)
+  , Show (ExtTerm ext extSet)
+  , Extension extSet
+  , Includes (ExtTerm extSet extSet) (ExtTerm ext extSet)
+  , Includes (ExtNeutral extSet extSet) (ExtNeutral ext extSet)
+  , Includes (ExtValue extSet extSet) (ExtValue ext extSet)
+  , Quote (ExtValue ext extSet) (ExtTerm ext extSet)
+  , Quote (ExtNeutral ext extSet) (ExtTerm ext extSet)
+  , Eval (ExtTerm ext extSet) extSet
+  , Subst (ExtTerm ext extSet) extSet
+  , InferType (ExtTerm ext extSet) extSet
+  ) =>
+  TypeExtension ext extSet
+  where
+  type ExtTerm ext extSet = t | t -> ext extSet
+  type ExtValue ext extSet = t | t -> ext extSet
+  type ExtNeutral ext extSet = t | t -> ext extSet
 
 type Env ext = [(Value ext)]
 
@@ -152,6 +177,30 @@ class Extension ext => Eval term ext | term -> ext where
 
 eval0 :: Eval term ext => term -> Value ext
 eval0 term = eval term []
+
+class Quote value term | value -> term where
+  quote :: Word -> value -> term
+
+quote0 :: Quote value term => value -> term
+quote0 = quote 0
+
+type Context ext = [(Name, Value ext)]
+
+type Result a = Either String a
+
+class InferType term ext | term -> ext where
+  inferType :: Word -> (Context ext) -> term -> Result (Value ext)
+
+inferType0 :: Extension ext => Context ext -> TermInf ext -> Result (Value ext)
+inferType0 = inferType 0
+
+throwError :: String -> Result a
+throwError = Left
+
+class Subst term ext | term -> ext where
+  subst :: Extension ext => TermInf ext -> Word -> term -> term
+
+-- Core evaluation
 
 instance Extension ext => Eval (TermInf ext) ext where
   eval term env = case term of
@@ -183,13 +232,7 @@ lookupBound env i = go env i
     | i == 0 = v
     | otherwise = go vs (pred i)
 
--- Quoting
-
-class Quote value term | value -> term where
-  quote :: Word -> value -> term
-
-quote0 :: Quote value term => value -> term
-quote0 = quote 0
+-- Core quoting
 
 instance Extension ext => Quote (Value ext) (TermChk ext) where
   quote n = go
@@ -211,62 +254,53 @@ instance Extension ext => Quote (Neutral ext) (TermInf ext) where
       NApp f arg -> go f :@: quote n arg
       NExt neutralNat -> Ext (quote n neutralNat)
 
--- Type checking
+-- Core type checking
 
-type TYPE ext = Value ext
+instance Extension ext => InferType (TermInf ext) ext where
+  inferType i ctx = \case
+    -- If the term is well formed, we must never reach Bound forms - they
+    -- must all have been subst'd with Free (Local x).
+    Bound i ->
+      throwError $ "Reference to unbound Bound: " <> show i
+    -- "Note that we assume that the term under consideration in inferType has no
+    --  unbound variables, so all calls to evalChk take an empty environment."
+    -- The Free (Local i) created by subst will be evaluated into (Neutral ext) values,
+    -- and later be read back via quote, so that the type equality test will work.
+    Ann term tipe -> do
+      checkType i ctx tipe VStar
+      let tipe' = eval0 tipe
+      checkType i ctx term tipe'
+      pure tipe'
+    Star -> pure VStar
+    Pi domain range -> do
+      checkType i ctx domain VStar
+      let domain' = eval0 domain
+      checkType
+        (succ i)
+        ((Local i, domain') : ctx)
+        (subst (Free (Local i)) 0 range)
+        VStar
+      pure VStar
+    Free name ->
+      case lookup name ctx of
+        Just tipe -> pure tipe
+        Nothing -> throwError $ "Unknown identifier in term: " <> show name
+    f :@: arg ->
+      inferType i ctx f >>= \case
+        VPi domain range -> do
+          checkType i ctx arg domain
+          pure (range (eval0 arg))
+        tipe ->
+          throwError $
+            unwords
+              [ "Illegal application. Term"
+              , show f
+              , "is a"
+              , show (quote0 tipe)
+              ]
+    Ext ext -> inferType i ctx ext
 
-type Context ext = [(Name, TYPE ext)]
-
-type Result a = Either String a
-
-inferType0 :: Extension ext => Context ext -> TermInf ext -> Result (TYPE ext)
-inferType0 = inferType 0
-
-inferType :: Extension ext => Word -> (Context ext) -> (TermInf ext) -> Result (TYPE ext)
-inferType i ctx = \case
-  -- If the term is well formed, we must never reach Bound forms - they
-  -- must all have been subst'd with Free (Local x).
-  Bound i ->
-    throwError $ "Reference to unbound Bound: " <> show i
-  -- "Note that we assume that the term under consideration in inferType has no
-  --  unbound variables, so all calls to evalChk take an empty environment."
-  -- The Free (Local i) created by subst will be evaluated into (Neutral ext) values,
-  -- and later be read back via quote, so that the type equality test will work.
-  Ann term tipe -> do
-    checkType i ctx tipe VStar
-    let tipe' = eval0 tipe
-    checkType i ctx term tipe'
-    pure tipe'
-  Star -> pure VStar
-  Pi domain range -> do
-    checkType i ctx domain VStar
-    let domain' = eval0 domain
-    checkType
-      (succ i)
-      ((Local i, domain') : ctx)
-      (subst (Free (Local i)) 0 range)
-      VStar
-    pure VStar
-  Free name ->
-    case lookup name ctx of
-      Just tipe -> pure tipe
-      Nothing -> throwError $ "Unknown identifier in term: " <> show name
-  f :@: arg ->
-    inferType i ctx f >>= \case
-      VPi domain range -> do
-        checkType i ctx arg domain
-        pure (range (eval0 arg))
-      tipe ->
-        throwError $
-          unwords
-            [ "Illegal application. Term"
-            , show f
-            , "is a"
-            , show (quote0 tipe)
-            ]
-  Ext ext -> typeExt i ctx ext
-
-checkType :: Extension ext => Word -> (Context ext) -> (TermChk ext) -> (TYPE ext) -> Result ()
+checkType :: Extension ext => Word -> (Context ext) -> (TermChk ext) -> (Value ext) -> Result ()
 checkType i ctx = \case
   Inf term' -> \expected -> do
     inferred <- inferType i ctx term'
@@ -295,11 +329,8 @@ checkType i ctx = \case
         , "but got a function."
         ]
 
-throwError :: String -> Result a
-throwError = Left
+-- Core subst
 
-class Subst term ext | term -> ext where
-  subst :: Extension ext => TermInf ext -> Word -> term -> term
 instance Subst (TermChk ext) ext where
   subst replacement = go
    where
@@ -322,48 +353,40 @@ instance Subst (TermInf ext) ext where
       Ext ext -> Ext (subst replacement i ext)
     goChk i = subst @(TermChk ext) replacement i
 
--- Extension
+-- Helper extension instances
 
-type Extension a = TypeExtension a a
-
-type TypeExtension :: Type -> Type -> Constraint
-class
-  ( Eq (ExtTerm ext extSet)
-  , Show (ExtTerm ext extSet)
-  , Extension extSet
-  , Includes (ExtTerm extSet extSet) (ExtTerm ext extSet)
-  , Includes (ExtNeutral extSet extSet) (ExtNeutral ext extSet)
-  , Includes (ExtValue extSet extSet) (ExtValue ext extSet)
-  , Quote (ExtValue ext extSet) (ExtTerm ext extSet)
-  , Quote (ExtNeutral ext extSet) (ExtTerm ext extSet)
-  , Eval (ExtTerm ext extSet) extSet
-  , Subst (ExtTerm ext extSet) extSet
-  ) =>
-  TypeExtension ext extSet
-  where
-  type ExtTerm ext extSet = t | t -> ext extSet
-  type ExtValue ext extSet = t | t -> ext extSet
-  type ExtNeutral ext extSet = t | t -> ext extSet
-  typeExt :: Word -> Context extSet -> ExtTerm ext extSet -> Result (Value extSet)
-
+-- | Empty: No entensions, only core calculus
 data Empty extSet
   deriving (Eq, Show)
 
-instance (Void ~ extSet) => TypeExtension Void extSet where
+instance
+  ( Extension extSet
+  , Includes (ExtTerm extSet extSet) (Empty extSet)
+  , Includes (ExtValue extSet extSet) (Empty extSet)
+  , Includes (ExtNeutral extSet extSet) (Empty extSet)
+  ) =>
+  TypeExtension Void extSet
+  where
   type ExtTerm Void extSet = Empty extSet
   type ExtValue Void extSet = Empty extSet
   type ExtNeutral Void extSet = Empty extSet
-  typeExt _ _ = \case {}
 
-instance Quote (Empty Void) (Empty Void) where
+instance Includes whatever (Empty ext) where
+  inject = \case {}
+  project _ = Nothing
+instance Quote (Empty extSet) (Empty extSet) where
   quote _ = \case {}
 
-instance Eval (Empty Void) Void where
+instance Extension extSet => Eval (Empty extSet) extSet where
   eval t _ = case t of {}
 
-instance Subst (Empty Void) Void where
+instance Extension extSet => InferType (Empty extSet) extSet where
+  inferType _ _ = \case {}
+
+instance Subst (Empty extSet) extSet where
   subst _ _ = \case {}
 
+-- | Either extension - use two extensions together
 instance
   ( TypeExtension a extSet
   , TypeExtension b extSet
@@ -378,7 +401,6 @@ instance
   type ExtTerm (Either a b) extSet = Either (ExtTerm a extSet) (ExtTerm b extSet)
   type ExtValue (Either a b) extSet = Either (ExtValue a extSet) (ExtValue b extSet)
   type ExtNeutral (Either a b) extSet = Either (ExtNeutral a extSet) (ExtNeutral b extSet)
-  typeExt n ctx = either (typeExt n ctx) (typeExt n ctx)
 
 instance
   ( (Either aTerm bTerm) ~ ExtTerm (Either a b) extSet
@@ -389,6 +411,16 @@ instance
   Eval (Either aTerm bTerm) extSet
   where
   eval = either eval eval
+
+instance
+  ( (Either aTerm bTerm) ~ ExtTerm (Either a b) extSet
+  , Extension extSet
+  , TypeExtension a extSet
+  , TypeExtension b extSet
+  ) =>
+  InferType (Either aTerm bTerm) extSet
+  where
+  inferType n ctx = either (inferType n ctx) (inferType n ctx)
 
 instance
   ( (Either aTerm bTerm) ~ ExtTerm (Either a b) extSet
