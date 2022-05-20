@@ -4,7 +4,7 @@ version:            0.1.0.0
 license:            NONE
 author:             Gustavo Bicalho
 maintainer:         gusbicalho@gmail.com
-
+description:        Code based on https://www.andres-loeh.de/LambdaPi/
 library
   default-language: GHC2021
   hs-source-dirs: src
