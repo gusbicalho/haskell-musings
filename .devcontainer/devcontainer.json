@@ -1,0 +1,27 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.233.0/containers/haskell
+{
+  "name": "Haskell (Community)",
+  // Update the 'dockerfile' property if you aren't using the standard 'Dockerfile' filename.
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "GHC_VERSION": "9.2.2",
+      "UPGRADE_PACKAGES": "false"
+    }
+  },
+  // Set *default* container specific settings.json values on container create.
+  "settings": {
+    "haskell.manageHLS": "GHCup"
+  },
+  // Add the IDs of extensions you want installed when the container is created.
+  "extensions": [
+    "haskell.haskell"
+  ],
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  // "postCreateCommand": "uname -a",
+  // Comment out to connect as root instead. To add a non-root user, see: https://aka.ms/vscode-remote/containers/non-root.
+  "remoteUser": "vscode"
+}
