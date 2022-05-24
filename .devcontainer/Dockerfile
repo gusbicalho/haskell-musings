@@ -23,7 +23,6 @@ RUN apt-get update && \
         zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
 
-
 # Use the [Option] comment to specify true/false arguments that should appear in VS Code UX
 #
 # [Option] Install zsh
@@ -42,14 +41,15 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 
 USER $USERNAME
 
-RUN mkdir -p /home/vscode/.ghcup/bin
-RUN curl -LJ "https://downloads.haskell.org/~ghcup/x86_64-linux-ghcup" -o /home/vscode/.ghcup/bin/ghcup
-RUN chmod +x /home/vscode/.ghcup/bin/ghcup
+RUN mkdir -p "$HOME/.ghcup/bin"
+RUN curl -LJ "https://downloads.haskell.org/~ghcup/x86_64-linux-ghcup" -o "$HOME/.ghcup/bin/ghcup"
+RUN chmod +x "$HOME/.ghcup/bin/ghcup"
 
-ENV PATH /home/vscode/.cabal/bin:/home/vscode/.ghcup/bin:$PATH
+ENV PATH="/home/$USERNAME/.cabal/bin:/home/$USERNAME/.ghcup/bin:$PATH"
 
 ARG GHC_VERSION="9"
 RUN ghcup install ghc "${GHC_VERSION}" --set
 RUN ghcup install cabal recommended --set
+RUN ghcup install stack recommended --set
 RUN ghcup install hls recommended --set
 RUN cabal update
