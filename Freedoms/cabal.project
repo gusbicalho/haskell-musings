@@ -1,5 +1,0 @@
-packages: ./*.cabal
-
-package Freedoms
-    optimization: 2
-    ghc-options: -fexpose-all-unfoldings -fspecialise-aggressively -flate-specialise

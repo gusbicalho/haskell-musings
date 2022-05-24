@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 279e45b824010c3bbfed8f68d21830f4635f4f4958559315b300c80828c310d9
+-- hash: 7ed530fdd5dbce7d90a4de8ac84684c02e70c54d306d0fafaf7ba90937d084f6
 
 name:           algebra-driven-design
 version:        0.1.0.0
@@ -32,7 +32,13 @@ library
       Paths_algebra_driven_design
   hs-source-dirs:
       src
-  default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms TypeApplications
+  default-extensions:
+      DeriveGeneric
+      DeriveDataTypeable
+      EmptyDataDeriving
+      DerivingStrategies
+      PatternSynonyms
+      TypeApplications
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do
   build-depends:
       base >=4.7 && <5
@@ -47,33 +53,26 @@ library
 test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
+  hs-source-dirs:
+      test
   other-modules:
       ADD.Scavenger.Algebra.ChallengeSpec
       ADD.Scavenger.Algebra.InputFilterSpec
       ADD.Scavenger.Algebra2.ChallengeSpec
       ADD.Scavenger.Algebra2.InputFilterSpec
       ADD_Old.Games.FirstModelSpec
-      ADD.Scavenger
-      ADD.Scavenger.Algebra.Challenge
-      ADD.Scavenger.Algebra.ClueState
-      ADD.Scavenger.Algebra.InputFilter
-      ADD.Scavenger.Algebra2.Challenge
-      ADD.Scavenger.Algebra2.ClueState
-      ADD.Scavenger.Algebra2.InputFilter
-      ADD_Old.Games.FirstModel
-      ADD_Old.Games.FirstModel.Events
-      ADD_Old.Games.FirstModel.Game
-      ADD_Old.Games.FirstModel.Result
-      ADD_Old.Games.FirstModel.Reward
-      ADD_Old.Games.Intro
-      Paths_algebra_driven_design
-  hs-source-dirs:
-      test
-      src
-  default-extensions: DeriveGeneric DeriveDataTypeable EmptyDataDeriving DerivingStrategies PatternSynonyms TypeApplications
+  default-extensions:
+      DeriveGeneric
+      DeriveDataTypeable
+      EmptyDataDeriving
+      DerivingStrategies
+      PatternSynonyms
+      TypeApplications
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -Wno-name-shadowing -foptimal-applicative-do -O2
+  build-tool-depends: hspec-discover:hspec-discover == 2.*
   build-depends:
       QuickCheck
+    , algebra-driven-design
     , base >=4.7 && <5
     , containers
     , dlist

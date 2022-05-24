@@ -1,0 +1,18 @@
+packages: ./*
+
+with-compiler: ghc-9.2.2
+
+package Freedoms
+    optimization: 2
+    ghc-options: -fexpose-all-unfoldings -fspecialise-aggressively -flate-specialise
+
+source-repository-package
+    type: git
+    location: https://github.com/gusbicalho/twee
+    tag: 43b676ab4d6cc049cba4db132d3ca374a5acd05e
+    subdir: src
+
+source-repository-package
+    type: git
+    location: https://github.com/gusbicalho/quickspec
+    tag: ff5e15b58dc401617fe511df3b7dd44e853e526b

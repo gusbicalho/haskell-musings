@@ -1,0 +1,43 @@
+cradle:
+  cabal:
+    - path: "./AlgebraDrivenDesign/src"
+      component: "lib:algebra-driven-design"
+
+    - path: "./AlgebraDrivenDesign/test"
+      component: "algebra-driven-design:test:test"
+
+    - path: "./EarlyDays/src"
+      component: "lib:early-days"
+
+    - path: "./Freedoms/src"
+      component: "lib:Freedoms"
+
+    - path: "./Freedoms/app/Main.hs"
+      component: "Freedoms:exe:Freedoms"
+
+    - path: "./Freedoms/app/Bench/Counter.hs"
+      component: "Freedoms:exe:Freedoms"
+
+    - path: "./HsFennel/app/Main.hs"
+      component: "hs-fennel:exe:hs-fennel-demo"
+
+    - path: "./HsFennel/app/Fennel.hs"
+      component: "hs-fennel:exe:hs-fennel-demo"
+
+    - path: "./LambdaPi/src"
+      component: "lib:LambdaPi"
+
+    - path: "./Objects/src"
+      component: "lib:objects"
+
+    - path: "./RealWorldHaskell/src"
+      component: "lib:real-world-haskell"
+
+    - path: "./SmallThings/src"
+      component: "lib:small-things"
+
+    - path: "./SmallThings/test"
+      component: "small-things:test:test"
+
+    - path: "./SmallThings/src"
+      component: "small-things:test:test"
