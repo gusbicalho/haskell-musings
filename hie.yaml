@@ -18,6 +18,9 @@ cradle:
     - path: "./Freedoms/app/Bench/Counter.hs"
       component: "Freedoms:exe:Freedoms"
 
+    - path: "./Henk/src"
+      component: "lib:Henk"
+
     - path: "./HsFennel/app/Main.hs"
       component: "hs-fennel:exe:hs-fennel-demo"
 

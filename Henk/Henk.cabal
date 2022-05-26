@@ -1,0 +1,18 @@
+cabal-version:      3.0
+name:               Henk
+version:            0.1.0.0
+license:            NONE
+author:             Gustavo Bicalho
+library
+    exposed-modules:
+      Henk
+      Henk.PTS
+      Henk.PTSAnnotatedVars
+      Henk.PTS.Fw
+      Henk.PTS.SimplyTyped
+    build-depends:
+      base ^>=4.16.1.0
+    ghc-options:
+      -Wall -Wcompat
+    hs-source-dirs: src
+    default-language: GHC2021
