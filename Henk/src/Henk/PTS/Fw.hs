@@ -3,7 +3,7 @@
 
 module Henk.PTS.Fw where
 
-import Henk.PTS
+import Henk.PTS.Core
 
 data Ko = KIND | TYPE
   deriving stock (Eq, Ord, Show)

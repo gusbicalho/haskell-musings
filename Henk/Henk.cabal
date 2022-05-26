@@ -6,8 +6,7 @@ author:             Gustavo Bicalho
 library
     exposed-modules:
       Henk
-      Henk.PTS
-      Henk.PTSAnnotatedVars
+      Henk.PTS.Core
       Henk.PTS.Fw
       Henk.PTS.SimplyTyped
     build-depends:

@@ -1,7 +1,7 @@
 module Henk.PTS.SimplyTyped where
 
 import Prelude hiding (pi)
-import Henk.PTS
+import Henk.PTS.Core
 
 data Ko = TYPE deriving (Eq, Show)
 

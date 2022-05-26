@@ -2,7 +2,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Henk.PTS where
+module Henk.PTS.Core where
 
 import Control.Monad (when)
 import Prelude hiding (pi)
