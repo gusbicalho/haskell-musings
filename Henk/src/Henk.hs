@@ -4,7 +4,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Henk where
@@ -15,6 +14,7 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty)
 import Data.Proxy (Proxy (Proxy))
 import Data.String (IsString (fromString))
+import Data.Traversable qualified as T
 import GHC.OverloadedLabels (IsLabel (..))
 import GHC.TypeLits (KnownSymbol, symbolVal)
 
@@ -241,7 +241,7 @@ checkTypeExpression typeOfLiteral = go
     EPi (boundVar :~ bindingType) boundExpr -> do
       bindingType_kind <-
         betaReduce <$> go ctx bindingType >>= \case
-          -- K k -> pure k
+          EK k -> pure k
           other -> Left $ "Unable to find Pi binding type kind in WHNF:\n  " <> show other
       let extendedCtx = case boundVar of
             Ignore -> ctx
@@ -258,8 +258,58 @@ checkTypeExpression typeOfLiteral = go
               <> (show bindingType <> " : " <> show bindingType_kind)
               <> " ~~> "
               <> (show boundExpr <> " : " <> show resultType_kind)
-    locals `EIn` body -> _
-    ECase scrutinee cases atClause -> _
+    localDecl `EIn` body -> do
+      localCtx <- checkValueDeclaration typeOfLiteral ctx localDecl
+      tipe <- go (localCtx <> ctx) body
+      tipe_kind <-
+        betaReduce <$> go ctx tipe >>= \case
+          EK k -> pure k
+          other -> Left $ "Unable to find body type kind in WHNF:\n  " <> show other
+      F.for_ localCtx \(_, typeOfLocallyBoundName) -> do
+        typeOfLocallyBoundName_kind <-
+          betaReduce <$> go ctx typeOfLocallyBoundName >>= \case
+            EK k -> pure k
+            other -> Left $ "Unable to find local binding type kind in WHNF:\n  " <> show other
+        case typeOfLocallyBoundName_kind ~~> tipe_kind of
+          Just piType_type -> pure (EK piType_type)
+          Nothing ->
+            Left $
+              "Let binding not allowed: "
+                <> (show typeOfLocallyBoundName <> " : " <> show typeOfLocallyBoundName_kind)
+                <> " ~~> "
+                <> (show tipe <> " : " <> show tipe_kind)
+      pure tipe
+    ECase scrutinee cases atClause -> do
+      scrutinee_type <- go ctx scrutinee
+      cases_types <- T.for cases \(pat :=> handler) -> do
+        let pat_raw_type = case pat of
+              CPLiteral lit -> typeOfLiteral lit
+              CPVariable (_ :~ t) -> t
+        pat_type <- go ctx (F.foldl' EApply pat_raw_type atClause)
+        handler_type <- go ctx handler
+        (pat :=>) <$> checkCaseAlternativeType scrutinee_type pat_type handler_type
+      pure $ ECase scrutinee cases_types atClause
+  checkCaseAlternativeType scrutinee_type pat_type handler_type
+    | scrutinee_type == pat_type =
+        -- Here we finished traversing the bindings of pattern and handler types,
+        -- until we got to the end: the point where we find the type of the
+        -- scrutinee. Since we've matched everything so far, the handler works.
+        pure handler_type
+    | EPi (_ :~ pat_binding_type) pat_bound <- pat_type
+    , EPi (_ :~ handler_binding_type) handler_bound <- handler_type
+    , pat_binding_type == handler_binding_type =
+        -- If the pattern has a Pi type, the handler must also have a Pi
+        -- type, and the types of bindings in these Pi types must match.
+        -- If that works all the way down, we have a type that will take
+        -- the right number of arguments and, in the end, return the type of
+        -- the handler.
+        EPi (Ignore :~ pat_binding_type) <$> checkCaseAlternativeType scrutinee_type pat_bound handler_bound
+    | otherwise =
+        Left $
+          "Type mismatch in case alternative. Pattern has type\n  "
+            <> show pat_type
+            <> "\nbut case handler has type\n  "
+            <> show handler_type
 
 isWHNF :: Expression id lit -> Bool
 isWHNF EApply{} = False
@@ -298,29 +348,36 @@ subst var value = go
     ELambda (v :~ t) body ->
       ELambda (v :~ go t) (if v == Var var then body else go body)
     EApply apply argument -> EApply (go apply) (go argument)
-    Let (localVar :~ localType := bindingValue) `EIn` body ->
-      Let (localVar :~ go localType := go bindingValue)
-        `EIn` case localVar of
-          Var localName
-            -- shadowing happens, so we must not subst in the body
-            -- but since this Let is not recursive
-            -- we must still subst in the type and in the binding value
-            | localName == var -> body
-          _ -> go body
-    Letrec bindings `EIn` body ->
-      if var `elem` declaredNames locals
-        then -- shadow
-          locals `EIn` body
-        else
-          let locals' = _
-              body' = _
-           in locals' `EIn` body'
+    valuedecl `EIn` body ->
+      case valuedecl of
+        Let binding
+          | var `isShadowedBy` [binding] ->
+              -- shadowing happens, so we must not subst in the body
+              -- but since this Let is not recursive
+              -- we still have to subst in the binding
+              Let (goBinding binding) `EIn` body
+          | otherwise ->
+              Let (goBinding binding) `EIn` go body
+        Letrec bindings
+          | var `isShadowedBy` bindings ->
+              -- since this is a recursive let, the shadowing is complete
+              Letrec bindings `EIn` body
+          | otherwise ->
+              -- no shadowing, so just recur everywhere
+              Letrec (goBinding <$> bindings) `EIn` go body
     ECase scrutinee cases atClause ->
       ECase
         (go scrutinee)
         (goCaseAlternative <$> cases)
         (go <$> atClause)
+  goBinding (localVar :~ localType := bindingValue) =
+    localVar :~ go localType := go bindingValue
   goCaseAlternative (pat :=> expr) = pat :=> go expr
+
+{-# INLINE isShadowedBy #-}
+isShadowedBy :: (Eq a, Foldable t) => a -> t (Binding a lit) -> Bool
+varId `isShadowedBy` bindings =
+  varId `elem` foldMap (F.toList . declaredName) bindings
 
 declaredNames :: ValueDeclaration id lit -> [id]
 declaredNames = \case

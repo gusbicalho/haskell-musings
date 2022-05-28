@@ -1,10 +1,23 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Henk.Example where
 
 import Henk
 import Henk.Sugar
+
+pattern EType :: Expression id lit
+pattern EType = EK TYPE
+
+pattern EKind :: Expression id lit
+pattern EKind = EK KIND
+
+test :: Result (Ctx String Word)
+test = checkProgram (const . ELookup $ #nat ~: EType) [("nat", EType)] example
+
+-- >>> test
+-- Left "Non-PI type in application: EK TYPE"
 
 example :: Program String Word
 example =
@@ -24,7 +37,7 @@ example =
       cons =
         #cons
           ~: let e = #e ~: EType
-              in pi' [e] ((#car ~: e) ~> (#cdr ~: list ! e) ~> list ! e)
+              in pi' [e] (e ~> (list ! e) ~> list ! e)
       nat = #nat ~: EType
       numbers = #numbers ~: tree ! list ! nat
       plus = #plus ~: nat ~> nat ~> nat
@@ -54,9 +67,9 @@ example =
                           arg
                           [ nil ==> lit 0
                           , cons
-                              ==> let car = #car ~: tree ! list ! nat
-                                      cdr = #cdr ~: list ! (tree ! list ! nat)
-                                   in plus ! (sumTree ! car) ! (sumList ! cdr)
+                              ==> let car1 = #car1 ~: tree ! list ! nat
+                                      cdr1 = #cdr1 ~: list ! (tree ! list ! nat)
+                                   in plus ! (sumTree ! car1) ! (sumList ! cdr1)
                           ]
                           `at` [tree ! list ! nat]
             ]
