@@ -6,9 +6,6 @@ module Henk.Sugar where
 
 import Data.Kind qualified
 import Data.List.NonEmpty (NonEmpty)
-import Data.Proxy (Proxy (Proxy))
-import GHC.OverloadedLabels (IsLabel (fromLabel))
-import GHC.TypeLits (KnownSymbol, symbolVal)
 import Henk
 
 -- | Helper to hang sugar instances on literals
@@ -38,16 +35,17 @@ letrec = Letrec
 (~:) :: ToExpr x id lit => Variable id -> x -> TypedVariable id lit
 e ~: t = e :~ toExpr t
 
-pi' :: ToExpr x id lit => NonEmpty (TypedVariable id lit) -> x -> Expression id lit
-pi' vts u = case toExpr u of
-  EPi args expr -> EPi (vts <> args) expr
-  u_expr -> EPi vts u_expr
+pi' :: ToExpr x id lit => [TypedVariable id lit] -> x -> Expression id lit
+pi' vts u = go vts
+ where
+  go [] = toExpr u
+  go (vt : more) = EPi vt (go more)
 
 (~>) :: (ToExpr x1 id lit, ToExpr x2 id lit) => x2 -> x1 -> Expression id lit
 t ~> u = pi' [Ignore ~: t] u
 
 (-->) :: ToExpr x id lit => TypedVariable id lit -> x -> Expression id lit
-v --> e = ELambda [v] (toExpr e)
+v --> e = ELambda v (toExpr e)
 
 (!) :: (ToExpr x1 id lit, ToExpr x2 id lit) => x1 -> x2 -> Expression id lit
 f ! a = EApply (toExpr f) (toExpr a)

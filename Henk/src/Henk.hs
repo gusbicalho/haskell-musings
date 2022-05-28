@@ -1,16 +1,18 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE DerivingStrategies #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Henk where
 
+import Control.Monad (when)
 import Data.Foldable qualified as F
-import Data.Kind qualified
+import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty)
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.String (IsString (fromString))
 import GHC.OverloadedLabels (IsLabel (..))
@@ -36,14 +38,16 @@ data Binding id lit
   = TypedVariable id lit := Expression id lit
   deriving stock (Eq, Ord, Show)
 
+data K = KIND | TYPE
+  deriving stock (Eq, Ord, Show)
+
 data Expression id lit
   = ELookup (TypedVariable id lit)
   | ELiteral lit
-  | EType
-  | EKind
+  | EK K
   | EApply (Expression id lit) (Expression id lit)
-  | ELambda (NonEmpty (TypedVariable id lit)) (Expression id lit)
-  | EPi (NonEmpty (TypedVariable id lit)) (Expression id lit)
+  | ELambda (TypedVariable id lit) (Expression id lit)
+  | EPi (TypedVariable id lit) (Expression id lit)
   | ValueDeclaration id lit `EIn` Expression id lit
   | ECase (Expression id lit) (NonEmpty (CaseAlternative id lit)) [Expression id lit]
   deriving stock (Eq, Ord, Show)
@@ -79,32 +83,216 @@ type Result a = Either String a
 
 type Ctx id lit = [(id, Expression id lit)]
 
-checkProgram :: (Eq id, Show id, Show lit) => Ctx id lit -> Program id lit -> Result (Ctx id lit)
-checkProgram baseCtx (MkProgram typedecls valuedecls) =
+ctxExtend :: a -> b -> [(a, b)] -> [(a, b)]
+ctxExtend id exp ctx = (id, exp) : ctx
+
+kAxioms :: K -> Maybe K
+kAxioms = \case
+  TYPE -> Just KIND
+  KIND -> Nothing
+
+(~~>) :: K -> K -> Maybe K
+KIND ~~> t = Just t -- Types can be bound in Terms or in Types
+TYPE ~~> TYPE = Just TYPE -- Terms can be bound in Terms
+TYPE ~~> KIND = Nothing -- Terms CANNOT be bound in Types
+
+checkProgram ::
+  (Eq id, Eq lit, Show id, Show lit) =>
+  (lit -> Expression id lit) ->
+  Ctx id lit ->
+  Program id lit ->
+  Result (Ctx id lit)
+checkProgram typeOfLiteral baseCtx (MkProgram typedecls valuedecls) =
   pure baseCtx
     >>= checkTypes
     >>= checkValues
  where
   checkTypes ctx =
     F.foldlM
-      (extendingCtx checkTypeDeclaration)
+      (extendingCtx (checkTypeDeclaration typeOfLiteral))
       ctx
       typedecls
   checkValues ctx =
     F.foldlM
-      (extendingCtx checkValueDeclaration)
+      (extendingCtx (checkValueDeclaration typeOfLiteral))
       ctx
       valuedecls
   extendingCtx f accum v = (<> accum) <$> f accum v
 
-checkTypeDeclaration :: (Eq id, Show id, Show lit) => Ctx id lit -> TypeDeclaration id lit -> Result (Ctx id lit)
-checkTypeDeclaration ctx typedecl@(typename :~ typekind ::= constructors) = do
-  typeId <- case typename of
-    Ignore -> Left $ "Top-level declarations must have an identifier, missing at:\n" <> show typedecl
-    Var id -> pure id
-  let constructorsCtx = []
-  -- TODO check
-  pure $ (typeId, typekind) : constructorsCtx
+checkTypeDeclaration ::
+  forall id lit.
+  (Eq id, Show id, Show lit) =>
+  (lit -> Expression id lit) ->
+  Ctx id lit ->
+  TypeDeclaration id lit ->
+  Result (Ctx id lit)
+checkTypeDeclaration typeOfLiteral ctx typedecl@(typevar ::= constructors) = do
+  typeCtxEntry@(_, typeKind) <- typedVarToCtxEntry typevar
+  checkTypeOrKind ctx typeKind
+  constructorsCtx <- traverse typedVarToCtxEntry constructors
+  let ctxWithType = typeCtxEntry : ctx
+  F.for_ constructorsCtx \(_, constructorKind) -> do
+    checkTypeOrKind ctxWithType constructorKind
+  pure $ F.toList constructorsCtx <> [typeCtxEntry]
+ where
+  -- Check if tipe is EType or EKind
+  checkTypeOrKind :: Ctx id lit -> Expression id lit -> Result ()
+  checkTypeOrKind ctx tipe =
+    checkTypeExpression typeOfLiteral ctx tipe >>= \case
+      EK _ -> pure ()
+      other ->
+        Left $
+          "Expected\n  "
+            <> show tipe
+            <> "\n to be a Type or Kind, but instead got\n  "
+            <> show other
+  typedVarToCtxEntry (name :~ tipe) =
+    case name of
+      Ignore -> Left $ "Top-level declarations must have an identifier, missing at:\n" <> show typedecl
+      Var identifier -> pure (identifier, tipe)
 
-checkValueDeclaration :: (Eq id, Show id, Show lit) => Ctx id lit -> ValueDeclaration id lit -> Result (Ctx id lit)
-checkValueDeclaration = _
+checkValueDeclaration ::
+  (Eq id, Eq lit, Show id, Show lit) =>
+  (lit -> Expression id lit) ->
+  Ctx id lit ->
+  ValueDeclaration id lit ->
+  Result (Ctx id lit)
+checkValueDeclaration typeOfLiteral ctx = \case
+  Let binding -> List.singleton <$> checkSingleBinding typeOfLiteral ctx binding
+  Letrec bindings -> do
+    let newCtxEntries = [(name, tipe) | (Var name :~ tipe := _) <- F.toList bindings]
+    let innerCtx = newCtxEntries <> ctx
+    F.toList <$> traverse (checkSingleBinding typeOfLiteral innerCtx) bindings
+
+checkSingleBinding ::
+  (Show id, Show lit, Eq id, Eq lit) =>
+  (lit -> Expression id lit) ->
+  Ctx id lit ->
+  Binding id lit ->
+  Either String (id, Expression id lit)
+checkSingleBinding typeOfLiteral ctx binding@(var :~ tipe := expr) = do
+  varId <- case var of
+    Ignore -> Left $ "Found binding declaration with no name. Useless!\n  " <> show binding
+    Var name -> pure name
+  inferred <- checkTypeExpression typeOfLiteral ctx expr
+  when (tipe /= inferred) do
+    Left $
+      "Expected an expression of type\n  "
+        <> show tipe
+        <> "\nbut inferred type\n  "
+        <> show inferred
+        <> "\nfor expression\n  "
+        <> show expr
+  pure (varId, tipe)
+
+checkTypeExpression ::
+  (Eq id, Show id, Show lit) =>
+  (lit -> Expression id lit) ->
+  Ctx id lit ->
+  Expression id lit ->
+  Result (Expression id lit)
+checkTypeExpression typeOfLiteral = go
+ where
+  go ctx = \case
+    ELiteral lit -> pure $ typeOfLiteral lit
+    EK k -> case kAxioms k of
+      Just s -> pure (EK s)
+      Nothing -> Left $ show k <> " does not have a type"
+    ELookup (Ignore :~ _) -> Left "Cannot lookup variable _"
+    ELookup (Var var :~ expected) -> case lookup var ctx of
+      Nothing -> Left $ "Free var " <> show var
+      Just bound -> do
+        when (expected /= bound) do
+          Left $
+            "Expected variable " <> show var <> " to have type\n  "
+              <> show expected
+              <> "\nbut it is bound to type\n  "
+              <> show bound
+        pure bound
+    EApply apply argument -> do
+      apply_type <- betaReduce <$> go ctx apply
+      case apply_type of
+        EPi bindings _ -> do
+          argument_type <- betaReduce <$> go ctx argument
+          when (not $ isWHNF argument_type) $
+            Left $ "Unable to reduce argument type to WHNF:\n  " <> show argument_type
+          when (bindingType /= argument_type) $
+            Left $
+              "Bad argument. Expected a\n  "
+                <> show bindingType
+                <> "\nbut got\n  "
+                <> show argument
+                <> "\nwhich is a\n  "
+                <> show argument_type
+          pure $ bind binding argument
+        other -> Left $ "Non-PI type in application: " <> show other
+    ELambda (boundVar :~ bindingType) boundExpr -> do
+      let extendedCtx = case boundVar of
+            Ignore -> ctx
+            Var boundName -> ctxExtend boundName bindingType ctx
+      return_type <- go extendedCtx boundExpr
+      let pi_type =
+            EPi (boundVar :~ bindingType) return_type
+      -- check that the Pi type is well sorted
+      _ <- go ctx pi_type
+      pure pi_type
+    EPi (boundVar :~ bindingType) boundExpr -> do
+      bindingType_kind <-
+        betaReduce <$> go ctx bindingType >>= \case
+          -- K k -> pure k
+          other -> Left $ "Unable to find Pi binding type kind in WHNF:\n  " <> show other
+      let extendedCtx = case boundVar of
+            Ignore -> ctx
+            Var boundName -> ctxExtend boundName bindingType ctx
+      resultType_kind <-
+        betaReduce <$> go extendedCtx boundExpr >>= \case
+          EK k -> pure k
+          other -> Left $ "Unable to find Pi result type kind in WHNF:\n  " <> show other
+      case bindingType_kind ~~> resultType_kind of
+        Just piType_type -> pure (EK piType_type)
+        Nothing ->
+          Left $
+            "Pi binding not allowed: "
+              <> (show bindingType <> " : " <> show bindingType_kind)
+              <> " ~~> "
+              <> (show boundExpr <> " : " <> show resultType_kind)
+    locals `EIn` body -> _
+    ECase scrutinee cases atClause -> _
+
+isWHNF :: Expression id lit -> Bool
+isWHNF EApply{} = False
+isWHNF _ = True
+
+betaReduce :: Expression id lit -> Expression id lit
+betaReduce = \case
+  e@(ELiteral _) -> e
+  e@(EK _) -> e
+  e@ELambda{} -> e
+  e@EPi{} -> e
+  e@ELookup{} -> e
+  e@EIn{} -> e
+  e@ECase{} -> e
+  EApply apply argument ->
+    let apply' = betaReduce apply
+        argument' = betaReduce argument
+     in case apply' of
+          ELambda (Var var :~ _) body -> betaReduce $ subst var argument' body
+          ELambda (Ignore :~ _) body -> betaReduce body
+          EPi (Var var :~ _) body -> betaReduce $ subst var argument' body
+          EPi (Ignore :~ _) body -> betaReduce body
+          _ -> EApply apply' argument'
+
+subst :: Eq id => id -> Expression id lit -> Expression id lit -> Expression id lit
+subst var value = go
+ where
+  go = \case
+    e@(ELiteral _) -> e
+    e@(EK _) -> e
+    e@(ELookup v)
+      | (Var vname :~ _) <- v, vname == var -> value
+      | otherwise -> e
+    EPi (v :~ t) body -> EPi (v :~ go t) (go body)
+    ELambda (v :~ t) body -> ELambda (v :~ go t) (go body)
+    EApply apply argument -> EApply (go apply) (go argument)
+    locals `EIn` body -> _
+    ECase scrutinee cases atClause -> _

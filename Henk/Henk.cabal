@@ -6,6 +6,7 @@ author:             Gustavo Bicalho
 library
     exposed-modules:
       Henk
+      Henk.Sugar
       Henk.PTS.Core
       Henk.PTS.Fw
       Henk.PTS.SimplyTyped
