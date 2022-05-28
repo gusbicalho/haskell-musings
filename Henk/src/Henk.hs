@@ -121,7 +121,7 @@ checkProgram typeOfLiteral baseCtx (MkProgram typedecls valuedecls) =
 
 checkTypeDeclaration ::
   forall id lit.
-  (Eq id, Show id, Show lit) =>
+  (Eq id, Eq lit, Show id, Show lit) =>
   (lit -> Expression id lit) ->
   Ctx id lit ->
   TypeDeclaration id lit ->
@@ -186,7 +186,7 @@ checkSingleBinding typeOfLiteral ctx binding@(var :~ tipe := expr) = do
   pure (varId, tipe)
 
 checkTypeExpression ::
-  (Eq id, Show id, Show lit) =>
+  (Eq id, Eq lit, Show id, Show lit) =>
   (lit -> Expression id lit) ->
   Ctx id lit ->
   Expression id lit ->
@@ -212,7 +212,7 @@ checkTypeExpression typeOfLiteral = go
     EApply apply argument -> do
       apply_type <- betaReduce <$> go ctx apply
       case apply_type of
-        EPi bindings _ -> do
+        EPi (boundVar :~ bindingType) boundExpr -> do
           argument_type <- betaReduce <$> go ctx argument
           when (not $ isWHNF argument_type) $
             Left $ "Unable to reduce argument type to WHNF:\n  " <> show argument_type
@@ -224,7 +224,9 @@ checkTypeExpression typeOfLiteral = go
                 <> show argument
                 <> "\nwhich is a\n  "
                 <> show argument_type
-          pure $ bind binding argument
+          pure case boundVar of
+            Ignore -> boundExpr
+            Var boundId -> subst boundId argument boundExpr
         other -> Left $ "Non-PI type in application: " <> show other
     ELambda (boundVar :~ bindingType) boundExpr -> do
       let extendedCtx = case boundVar of
@@ -263,7 +265,7 @@ isWHNF :: Expression id lit -> Bool
 isWHNF EApply{} = False
 isWHNF _ = True
 
-betaReduce :: Expression id lit -> Expression id lit
+betaReduce :: Eq id => Expression id lit -> Expression id lit
 betaReduce = \case
   e@(ELiteral _) -> e
   e@(EK _) -> e
@@ -291,8 +293,40 @@ subst var value = go
     e@(ELookup v)
       | (Var vname :~ _) <- v, vname == var -> value
       | otherwise -> e
-    EPi (v :~ t) body -> EPi (v :~ go t) (go body)
-    ELambda (v :~ t) body -> ELambda (v :~ go t) (go body)
+    EPi (v :~ t) body ->
+      EPi (v :~ go t) (if v == Var var then body else go body)
+    ELambda (v :~ t) body ->
+      ELambda (v :~ go t) (if v == Var var then body else go body)
     EApply apply argument -> EApply (go apply) (go argument)
-    locals `EIn` body -> _
-    ECase scrutinee cases atClause -> _
+    Let (localVar :~ localType := bindingValue) `EIn` body ->
+      Let (localVar :~ go localType := go bindingValue)
+        `EIn` case localVar of
+          Var localName
+            -- shadowing happens, so we must not subst in the body
+            -- but since this Let is not recursive
+            -- we must still subst in the type and in the binding value
+            | localName == var -> body
+          _ -> go body
+    Letrec bindings `EIn` body ->
+      if var `elem` declaredNames locals
+        then -- shadow
+          locals `EIn` body
+        else
+          let locals' = _
+              body' = _
+           in locals' `EIn` body'
+    ECase scrutinee cases atClause ->
+      ECase
+        (go scrutinee)
+        (goCaseAlternative <$> cases)
+        (go <$> atClause)
+  goCaseAlternative (pat :=> expr) = pat :=> go expr
+
+declaredNames :: ValueDeclaration id lit -> [id]
+declaredNames = \case
+  Let binding -> F.toList $ declaredName binding
+  Letrec bindings -> foldMap (F.toList . declaredName) bindings
+
+declaredName :: Binding id lit -> Maybe id
+declaredName (Ignore :~ _ := _) = Nothing
+declaredName (Var name :~ _ := _) = Just name
