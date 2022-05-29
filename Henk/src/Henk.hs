@@ -38,7 +38,7 @@ data Binding id lit
   = TypedVariable id lit := Expression id lit
   deriving stock (Eq, Ord, Show)
 
-data K = KIND | TYPE
+data K = KIND | TYPE | NAT
   deriving stock (Eq, Ord, Show)
 
 data Expression id lit
@@ -88,6 +88,7 @@ ctxExtend id exp ctx = (id, exp) : ctx
 
 kAxioms :: K -> Maybe K
 kAxioms = \case
+  NAT -> Just TYPE
   TYPE -> Just KIND
   KIND -> Nothing
 
@@ -95,6 +96,7 @@ kAxioms = \case
 KIND ~~> t = Just t -- Types can be bound in Terms or in Types
 TYPE ~~> TYPE = Just TYPE -- Terms can be bound in Terms
 TYPE ~~> KIND = Nothing -- Terms CANNOT be bound in Types
+_ ~~> _ = Nothing -- Other relations don't make sense
 
 checkProgram ::
   (Eq id, Eq lit, Show id, Show lit) =>
@@ -227,7 +229,12 @@ checkTypeExpression typeOfLiteral = go
           pure case boundVar of
             Ignore -> boundExpr
             Var boundId -> subst boundId argument boundExpr
-        other -> Left $ "Non-PI type in application: " <> show other
+        other -> Left $ "Non-PI type in application. In expression\n"
+          <> "  EApply\n"
+          <> ("    " <> show apply <> "\n")
+          <> ("    " <> show argument <> "\n")
+          <> "the applied value has type\n  "
+          <> show other
     ELambda (boundVar :~ bindingType) boundExpr -> do
       let extendedCtx = case boundVar of
             Ignore -> ctx

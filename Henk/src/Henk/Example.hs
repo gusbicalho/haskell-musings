@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -13,11 +14,20 @@ pattern EType = EK TYPE
 pattern EKind :: Expression id lit
 pattern EKind = EK KIND
 
-test :: Result (Ctx String Word)
-test = checkProgram (const . ELookup $ #nat ~: EType) [("nat", EType)] example
+pattern ENat :: Expression id lit
+pattern ENat = EK NAT
 
--- >>> test
--- Left "Non-PI type in application: EK TYPE"
+expectRight :: Either String b -> b
+expectRight = \case
+  Right x -> x
+  Left err -> error err
+
+test :: Result (Ctx String Word)
+test = checkProgram (const ENat) [] example
+
+-- >>> expectRight test
+-- Unable to reduce argument type to WHNF:
+--   EApply (ELookup (Var "list" :~ EPi (Ignore :~ EK TYPE) (EK TYPE))) (EK NAT)
 
 example :: Program String Word
 example =
@@ -32,56 +42,55 @@ example =
       list = #list ~: EType ~> EType
       nil =
         #nil
-          ~: let e = #e ~: EType
+          ~: let e = #nile ~: EType
               in pi' [e] (list ! e)
       cons =
         #cons
-          ~: let e = #e ~: EType
+          ~: let e = #conse ~: EType
               in pi' [e] (e ~> (list ! e) ~> list ! e)
-      nat = #nat ~: EType
-      numbers = #numbers ~: tree ! list ! nat
-      plus = #plus ~: nat ~> nat ~> nat
-      sumTree = #sumTree ~: tree ! list ! nat ~> nat
-      sumList = #sumList ~: list ! (tree ! list ! nat) ~> nat
-      main = #main ~: nat
+      numbers = #numbers ~: tree ! list ! ENat
+      -- plus = #plus ~: ENat ~> ENat ~> ENat
+      -- sumTree = #sumTree ~: tree ! list ! ENat ~> ENat
+      -- sumList = #sumList ~: list ! (tree ! list ! ENat) ~> ENat
+      -- main = #main ~: ENat
    in MkProgram
         [ tree ::= [branch]
         , list ::= [nil, cons]
         ]
-        [ letrec
-            [ sumTree
-                =: let arg = #arg ~: tree ! list ! nat
-                    in arg
-                        --> caseOf
-                          arg
-                          [ branch
-                              ==> let v = #v ~: nat
-                                      children = #children ~: list ! (tree ! list ! nat)
-                                   in v --> children --> plus ! v ! (sumList ! children)
-                          ]
-                          `at` [toExpr list, toExpr nat]
-            , sumList
-                =: let arg = #arg ~: list ! (tree ! list ! nat)
-                    in arg
-                        --> caseOf
-                          arg
-                          [ nil ==> lit 0
-                          , cons
-                              ==> let car1 = #car1 ~: tree ! list ! nat
-                                      cdr1 = #cdr1 ~: list ! (tree ! list ! nat)
-                                   in plus ! (sumTree ! car1) ! (sumList ! cdr1)
-                          ]
-                          `at` [tree ! list ! nat]
-            ]
-        , numbers
-            =: branch ! list ! nat
+        [ numbers
+            =: branch ! list ! ENat
               ! lit 4
-              ! ( cons ! nat
-                    ! (branch ! list ! nat ! lit 2 ! (nil ! nat))
-                    ! ( cons ! nat
-                          ! (branch ! list ! nat ! lit 2 ! (nil ! nat))
-                          ! (nil ! nat)
+              ! ( cons ! ENat
+                    ! (branch ! list ! ENat ! lit 2 ! (nil ! ENat))
+                    ! ( cons ! ENat
+                          ! (branch ! list ! ENat ! lit 2 ! (nil ! ENat))
+                          ! (nil ! ENat)
                       )
                 )
-        , main =: sumTree ! numbers
+        -- , letrec
+        --     [ sumTree
+        --         =: let arg = #sumTreeArg ~: tree ! list ! ENat
+        --             in arg
+        --                 --> caseOf
+        --                   arg
+        --                   [ branch
+        --                       ==> let v = #sumTreeBranchV ~: ENat
+        --                               children = #children ~: list ! (tree ! list ! ENat)
+        --                            in v --> children --> plus ! v ! (sumList ! children)
+        --                   ]
+        --                   `at` [toExpr list, toExpr ENat]
+        --     , sumList
+        --         =: let arg = #sumListArg ~: list ! (tree ! list ! ENat)
+        --             in arg
+        --                 --> caseOf
+        --                   arg
+        --                   [ nil ==> lit 0
+        --                   , cons
+        --                       ==> let car1 = #car1 ~: tree ! list ! ENat
+        --                               cdr1 = #cdr1 ~: list ! (tree ! list ! ENat)
+        --                            in plus ! (sumTree ! car1) ! (sumList ! cdr1)
+        --                   ]
+        --                   `at` [tree ! list ! ENat]
+        --     ]
+        -- , main =: sumTree ! numbers
         ]
