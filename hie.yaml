@@ -6,6 +6,9 @@ cradle:
     - path: "./AlgebraDrivenDesign/test"
       component: "algebra-driven-design:test:test"
 
+    - path: "./Bidiractional/src"
+      component: "lib:Bidiractional"
+
     - path: "./EarlyDays/src"
       component: "lib:early-days"
 
