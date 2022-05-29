@@ -7,7 +7,7 @@
     "dockerfile": "Dockerfile",
     "args": {
       "GHC_VERSION": "9.2.2",
-      "UPGRADE_PACKAGES": "false"
+      "UPGRADE_PACKAGES": "true"
     }
   },
   // Set *default* container specific settings.json values on container create.
@@ -18,10 +18,6 @@
   "extensions": [
     "haskell.haskell"
   ],
-  // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  // "forwardPorts": [],
-  // Use 'postCreateCommand' to run commands after the container is created.
-  // "postCreateCommand": "uname -a",
   // Comment out to connect as root instead. To add a non-root user, see: https://aka.ms/vscode-remote/containers/non-root.
   "remoteUser": "vscode"
 }
