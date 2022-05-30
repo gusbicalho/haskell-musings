@@ -16,4 +16,5 @@ library
     Bidirectional
   build-depends:
     base ^>=4.16.1.0,
+    containers,
     transformers
