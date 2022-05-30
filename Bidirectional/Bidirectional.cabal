@@ -10,7 +10,10 @@ synopsis:
 library
   hs-source-dirs: src
   default-language: GHC2021
+  ghc-options:
+    -Wall -Wcompat
   exposed-modules:
     Bidirectional
   build-depends:
-    base ^>=4.16.1.0
+    base ^>=4.16.1.0,
+    transformers
