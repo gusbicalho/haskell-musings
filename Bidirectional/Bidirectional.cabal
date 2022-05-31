@@ -14,6 +14,7 @@ library
     -Wall -Wcompat
   exposed-modules:
     Bidirectional
+    BidirectionalWithImplicitCtx
   build-depends:
     base ^>=4.16.1.0,
     containers,
