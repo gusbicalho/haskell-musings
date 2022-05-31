@@ -14,6 +14,11 @@ library
     -Wall -Wcompat
   exposed-modules:
     Bidirectional
+    Bidirectional.Context
+    Bidirectional.ContextState
+    Bidirectional.FreshVar
+    Bidirectional.Language
+    Bidirectional.ReportTypeErrors
     BidirectionalWithImplicitCtx
   build-depends:
     base ^>=4.16.1.0,

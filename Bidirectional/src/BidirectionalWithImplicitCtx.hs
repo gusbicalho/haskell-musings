@@ -5,268 +5,61 @@
 
 module BidirectionalWithImplicitCtx where
 
-import Control.Monad.Trans.Class (MonadTrans)
-import Control.Monad.Trans.Class qualified as Trans
+import Bidirectional.Context (Ctx)
+import Bidirectional.Context qualified as Ctx
+import Bidirectional.ContextState qualified as CtxState
+import Bidirectional.FreshVar qualified as FreshVar
+import Bidirectional.Language
+import Bidirectional.ReportTypeErrors
 import Control.Monad.Trans.Except (Except)
 import Control.Monad.Trans.Except qualified as Except
-import Control.Monad.Trans.State.Strict (StateT)
-import Control.Monad.Trans.State.Strict qualified as State
-import Data.Foldable qualified as F
 import Data.Functor ((<&>))
-import Data.List qualified as List
-import Data.Maybe qualified as Maybe
-import Data.Set (Set)
-import Data.Set qualified as Set
 
-data Var
-  = NamedVar String
-  | FreshVar String Word
-  deriving stock (Eq, Ord, Show)
+-- Effects stack
+type TC = FreshVar.FreshT (Except String)
 
-data Expr
-  = EUnit
-  | EVar Var
-  | EAnno Expr Tipe
-  | ELam String Expr
-  | EApply Expr Expr
-  deriving stock (Eq, Ord, Show)
-
-data Mono
-  = MonoUnit
-  | MonoVar Var
-  | MonoFunction Mono Mono
-  deriving stock (Eq, Ord, Show)
-
-data Tipe
-  = TUnit
-  | TVar Var
-  | TFunction Tipe Tipe
-  | TForall String Tipe
-  deriving stock (Eq, Ord, Show)
+runTC :: TC a -> Either String a
+runTC = Except.runExcept . FreshVar.runFreshT
 
 --------------------------------------------------------------------------------
--- Mono manipulation
+-- Examples
 
-monoToTipe :: Mono -> Tipe
-monoToTipe = \case
-  MonoUnit -> TUnit
-  MonoVar v -> TVar v
-  MonoFunction arg ret -> TFunction (monoToTipe arg) (monoToTipe ret)
+expectRight :: TC a -> a
+expectRight = either error id . runTC
 
-tipeToMono :: Tipe -> Maybe Mono
-tipeToMono = \case
-  TUnit -> Just MonoUnit
-  TVar v -> Just (MonoVar v)
-  TFunction arg ret -> MonoFunction <$> tipeToMono arg <*> tipeToMono ret
-  TForall{} -> Nothing
+test_id :: Expr
+test_id = ELam "x" (EVar (NamedVar "x"))
 
---------------------------------------------------------------------------------
--- Contexts
+test_const :: Expr
+test_const = ELam "x" (ELam "y" (EVar (NamedVar "x")))
 
-data CtxBinding
-  = HasType Tipe
-  | IsUniversal
-  | IsExistential (Maybe Mono)
-  deriving (Eq, Ord, Show)
+test_constUnit :: Expr
+test_constUnit = EApply test_const EUnit
 
-data ExistentialMarker = MkExistentialMarker Var
-  deriving (Eq, Ord, Show)
+{-
 
-data Ctx = MkCtx
-  { ctxBindings :: [Either ExistentialMarker (Var, CtxBinding)]
-  , ctxDomain :: Set Var
-  , ctxMarkers :: Set ExistentialMarker
-  }
-  deriving (Eq, Ord, Show)
+>>> expectRight . typeComplete $ EApply (ELam "f" (EApply (EVar (NamedVar "f")) EUnit)) test_id
+TUnit
 
-emptyCtx :: Ctx
-emptyCtx = MkCtx [] mempty mempty
+>>> expectRight . typeComplete $ test_id
+TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
 
-bindVar :: ReportTypeErrors m => Var -> CtxBinding -> CtxStateT m ()
-bindVar v binding = getCtx >>= go
- where
-  go ctx@MkCtx{ctxBindings, ctxDomain}
-    | v `Set.member` ctxDomain =
-        typeError ["Variable", ind [show v], "already bound in context."]
-    | otherwise =
-        putCtx
-          ctx
-            { ctxBindings = Right (v, binding) : ctxBindings
-            , ctxDomain = Set.insert v ctxDomain
-            }
+>>> expectRight . typeComplete $ EAnno test_id (TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))))
+TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
 
--- | VarCtx
-bindTermVar :: ReportTypeErrors m => Var -> Tipe -> CtxStateT m ()
-bindTermVar v tipe = do
-  getCtx >>= \ctx -> isWellFormedType ctx tipe
-  bindVar v (HasType tipe)
+>>> expectRight . typeComplete $ test_const
+TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
 
--- | UvarCtx
-bindUniversal :: ReportTypeErrors m => Var -> CtxStateT m ()
-bindUniversal v = bindVar v IsUniversal
+>>> expectRight . typeComplete $ ELam "x" EUnit
+TFunction (TVar (FreshVar "->I\8658_arg" 0)) TUnit
 
--- | EvarCtx
-bindOpenExistential :: ReportTypeErrors m => Var -> CtxStateT m ()
-bindOpenExistential v = bindVar v (IsExistential Nothing)
+>>> expectRight . typeComplete $ test_constUnit
+TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
 
--- | SolvedEvarCtx
-bindSolvedExistential :: ReportTypeErrors m => Var -> Mono -> CtxStateT m ()
-bindSolvedExistential v mono = do
-  getCtx >>= \ctx -> isWellFormedMono ctx mono
-  bindVar v (IsExistential (Just mono))
-
--- | MarkerCtx
-markExistential :: ReportTypeErrors m => Var -> CtxStateT m ()
-markExistential v = getCtx >>= go
- where
-  go ctx@MkCtx{ctxBindings, ctxDomain, ctxMarkers}
-    | v `Set.member` ctxDomain =
-        typeError ["Existential variable already exists in context", ind [show v]]
-    | marker `Set.member` ctxMarkers =
-        typeError ["Marker for existential variable already exists in context", ind [show v]]
-    | otherwise =
-        putCtx
-          ctx
-            { ctxBindings = Left marker : ctxBindings
-            , ctxMarkers = Set.insert marker ctxMarkers
-            }
-  marker = MkExistentialMarker v
-
-extendCtx :: ReportTypeErrors m => Either ExistentialMarker (Var, CtxBinding) -> CtxStateT m ()
-extendCtx = \case
-  Left (MkExistentialMarker var) -> markExistential var
-  Right (var, HasType tipe) -> bindTermVar var tipe
-  Right (var, IsUniversal) -> bindUniversal var
-  Right (var, IsExistential Nothing) -> bindOpenExistential var
-  Right (var, IsExistential (Just solution)) -> bindSolvedExistential var solution
-
-solveExistential :: Var -> Mono -> Ctx -> TC Ctx
-solveExistential target mono ctx = execCtx ctx $ articulateExistential target [] mono
-
-articulateExistential :: ReportTypeErrors m => Var -> [Var] -> Mono -> CtxStateT m ()
-articulateExistential target newVars solution = do
-  ctx <- getCtx
-  if target `Set.notMember` ctxDomain ctx
-    then unknownVariableError
-    else do
-      operateOnBindingHole_ target \binding -> do
-        -- the target var must be a known unsolved existential
-        case binding of
-          Just (IsExistential Nothing) -> pure ()
-          Just (IsExistential (Just alreadySolved)) ->
-            typeError
-              [ "Tried to articulate variable"
-              , ind1 target
-              , "to type"
-              , ind1 solution
-              , "but it was already instantiated to"
-              , ind1 alreadySolved
-              ]
-          Just IsUniversal ->
-            typeError ["Cannot articulate universal variable", ind1 target]
-          Just (HasType _) ->
-            typeError ["Cannot articulate term variable", ind1 target]
-          Nothing -> unknownVariableError
-        -- we then bind the new open variables, and bind the solution
-        F.traverse_ bindOpenExistential newVars
-        bindSolvedExistential target solution
- where
-  unknownVariableError :: ReportTypeErrors m => m x
-  unknownVariableError = typeError ["Cannot instantiate unknown variable", ind1 target]
-
-lookupBinding :: Var -> Ctx -> Maybe CtxBinding
-lookupBinding var MkCtx{ctxBindings, ctxDomain}
-  | var `Set.notMember` ctxDomain = Nothing
-  | otherwise = Maybe.listToMaybe . Maybe.mapMaybe check $ ctxBindings
- where
-  check (Left _) = Nothing
-  check (Right (v, binding))
-    | var == v = Just binding
-    | otherwise = Nothing
-
-{- | Assuming both vars are defined, tells us whether the first Var wqas defined
- before the second Var
 -}
-definedBefore :: Ctx -> Var -> Var -> Bool
-definedBefore MkCtx{ctxBindings} varBefore varAfter =
-  foldr go False ctxBindings
- where
-  go (Left _) acc = acc
-  go (Right (v, _)) acc
-    -- The varAfter is more to the right, thus it was defined later
-    -- so varBefore was definedBefore the varAfter
-    | v == varAfter = True
-    -- The varBefore is more to the right, thus it was defined later
-    -- so varBefore was definitely not definedBefore the varAfter
-    | v == varBefore = False
-    -- We didn't find either var yet, so we keep going
-    | otherwise = acc
-
-substCtxInType :: Ctx -> Tipe -> Tipe
-substCtxInType ctx = go
- where
-  go TUnit = TUnit
-  go t@(TVar var) = case lookupBinding var ctx of
-    Just (IsExistential (Just solved)) -> go (monoToTipe solved)
-    _ -> t
-  go (TFunction argType retType) = TFunction (go argType) (go retType)
-  go (TForall universalName tipe) = TForall universalName (go tipe)
-
-dropEntriesUntilBinding :: Var -> Ctx -> (Ctx, Maybe CtxBinding, [Either ExistentialMarker (Var, CtxBinding)])
-dropEntriesUntilBinding target = go []
- where
-  go dropped ctx@MkCtx{ctxBindings = []} =
-    (ctx, Nothing, dropped)
-  go dropped ctx@MkCtx{ctxBindings = entry@(Left marker) : more, ctxMarkers} =
-    let cleanCtx = ctx{ctxBindings = more, ctxMarkers = Set.delete marker ctxMarkers}
-     in go (entry : dropped) cleanCtx
-  go dropped ctx@MkCtx{ctxBindings = entry@(Right (var, binding)) : more, ctxDomain} =
-    let cleanCtx = ctx{ctxBindings = more, ctxDomain = Set.delete var ctxDomain}
-     in if var == target
-          then (cleanCtx, Just binding, dropped)
-          else go (entry : dropped) cleanCtx
-
-operateOnBindingHole ::
-  ReportTypeErrors m =>
-  Var ->
-  (Maybe CtxBinding -> CtxStateT m b) ->
-  CtxStateT m b
-operateOnBindingHole target op = do
-  -- we unroll the context until we find the target var
-  ctx <- getCtx
-  let (ctxPrefix, binding, suffixEntries) = dropEntriesUntilBinding target ctx
-  putCtx ctxPrefix
-  result <- op binding
-  -- and then replay all the entries we had unrolled
-  F.traverse_ extendCtx suffixEntries
-  pure result
-
-operateOnBindingHole_ ::
-  ReportTypeErrors m =>
-  Var ->
-  (Maybe CtxBinding -> CtxStateT m ()) ->
-  CtxStateT m ()
-operateOnBindingHole_ target op = do
-  fst <$> operateOnBindingHole target \binding ->
-    op binding <&> (,())
-
-dropEntriesUntilBinding_ :: Var -> Ctx -> Ctx
-dropEntriesUntilBinding_ target = (\(ctx, _, _) -> ctx) . dropEntriesUntilBinding target
-
-dropEntriesUntilMarkerOf :: Var -> Ctx -> Ctx
-dropEntriesUntilMarkerOf target = go
- where
-  go ctx@MkCtx{ctxBindings = []} = ctx
-  go ctx@MkCtx{ctxBindings = Right (var, _) : more, ctxDomain} =
-    go ctx{ctxBindings = more, ctxDomain = Set.delete var ctxDomain}
-  go ctx@MkCtx{ctxBindings = Left marker@(MkExistentialMarker var) : more, ctxMarkers} =
-    let cleanCtx = ctx{ctxBindings = more, ctxMarkers = Set.delete marker ctxMarkers}
-     in if var == target
-          then cleanCtx
-          else go cleanCtx
 
 --------------------------------------------------------------------------------
--- Well-formedness of types and subtyping
+-- Subtyping
 --
 -- Here I decided to manage Ctx explicitly in the top-level defs, because there
 -- is a lot of checking the initial state in pattern matches, and also places
@@ -274,53 +67,6 @@ dropEntriesUntilMarkerOf target = go
 -- propagate changes (e.g. ForallWF).
 -- I used in a few places `execCtx` to bridge the world with the implicit Ctx
 -- management machinery defined above.
-
-isWellFormedMono :: ReportTypeErrors m => Ctx -> Mono -> m ()
-isWellFormedMono ctx = \case
-  -- UnitWF
-  MonoUnit -> pure ()
-  -- UvarWF, EvarWF, SolvedEvarWF
-  (MonoVar var) -> varIsBoundToAType ctx var
-  -- ArrowWF
-  (MonoFunction argType retType) -> do
-    isWellFormedMono ctx argType
-    isWellFormedMono ctx retType
-
-isWellFormedType :: ReportTypeErrors m => Ctx -> Tipe -> m ()
-isWellFormedType ctx = \case
-  -- UnitWF
-  TUnit -> pure ()
-  -- UvarWF, EvarWF, SolvedEvarWF
-  (TVar var) -> varIsBoundToAType ctx var
-  -- ArrowWF
-  (TFunction argType retType) -> do
-    isWellFormedType ctx argType
-    isWellFormedType ctx retType
-  -- ForallWF
-  TForall boundName boundType -> do
-    extendedCtx <- execCtx ctx do
-      bindUniversal (NamedVar boundName)
-    isWellFormedType extendedCtx boundType
-
-doesNotOccurFreeIn :: Var -> Tipe -> TC ()
-doesNotOccurFreeIn target fullType = go fullType
- where
-  go (TVar v)
-    | v == target =
-        typeError
-          [ "Variable"
-          , ind1 target
-          , "is not free in type"
-          , ind1 fullType
-          ]
-    | otherwise = pure ()
-  go (TForall univName univType)
-    -- shadowing
-    | NamedVar univName == target = pure ()
-    -- no shadowing
-    | otherwise = go univType
-  go TUnit = pure ()
-  go (TFunction argType retType) = go argType *> go retType
 
 isSubtypeOf :: Ctx -> Tipe -> Tipe -> TC Ctx
 isSubtypeOf ctx = go
@@ -330,41 +76,41 @@ isSubtypeOf ctx = go
   -- <:Var, <:Exvar
   go (TVar v1) (TVar v2)
     | v1 == v2 = do
-        varIsBoundToAType ctx v1
+        Ctx.varIsBoundToAType ctx v1
         pure ctx
   -- InstantiateL
   go (TVar varA) typeB
-    | Just (IsExistential Nothing) <- lookupBinding varA ctx =
+    | Just (Ctx.IsExistential Nothing) <- Ctx.lookupBinding varA ctx =
         do
-          varA `doesNotOccurFreeIn` typeB
+          varA `Ctx.doesNotOccurFreeIn` typeB
           instantiateToSubtypeOf varA typeB ctx
   -- InstantiateR
   go typeA (TVar varB)
-    | Just (IsExistential Nothing) <- lookupBinding varB ctx =
+    | Just (Ctx.IsExistential Nothing) <- Ctx.lookupBinding varB ctx =
         do
-          varB `doesNotOccurFreeIn` typeA
+          varB `Ctx.doesNotOccurFreeIn` typeA
           instantiateToSupertypeOf typeA varB ctx
   -- <:->
   go (TFunction argA retA) (TFunction argB retB) = do
     ctx' <- isSubtypeOf ctx argB argA
-    let retA' = substCtxInType ctx' retA
-    let retB' = substCtxInType ctx' retB
+    let retA' = Ctx.substCtxInType ctx' retA
+    let retB' = Ctx.substCtxInType ctx' retB
     isSubtypeOf ctx' retA' retB'
   -- <:ForallR
   go typeA (TForall univName univType) = do
     let univVar = NamedVar univName
-    extendedCtx <- execCtx ctx $ bindUniversal univVar
+    extendedCtx <- CtxState.execCtx ctx $ CtxState.bindUniversal univVar
     dirtyCtx <- isSubtypeOf extendedCtx typeA univType
-    pure $ dropEntriesUntilBinding_ univVar dirtyCtx
+    pure $ Ctx.dropEntriesUntilBinding_ univVar dirtyCtx
   -- <=ForallL
   go (TForall boundName typeA) typeB = do
-    existentialVar <- freshTypeVar "<=ForallL"
-    existentialContext <- execCtx ctx do
-      markExistential existentialVar
-      bindOpenExistential existentialVar
+    existentialVar <- FreshVar.freshVar "<=ForallL"
+    existentialContext <- CtxState.execCtx ctx do
+      CtxState.markExistential existentialVar
+      CtxState.bindOpenExistential existentialVar
     let boundA = substType (NamedVar boundName) (TVar existentialVar) typeA
     dirtyCtx <- isSubtypeOf existentialContext boundA typeB
-    pure $ dropEntriesUntilMarkerOf existentialVar dirtyCtx
+    pure $ Ctx.dropEntriesUntilMarkerOf existentialVar dirtyCtx
   -- otherwise, fail!
   go a b =
     typeError
@@ -381,10 +127,10 @@ instantiateToSubtypeOf = \v t ctx -> go ctx v t
   go :: Ctx -> Var -> Tipe -> TC Ctx
   go baseCtx alpha = \case
     (TVar beta) -> do
-      case lookupBinding beta baseCtx of
+      case Ctx.lookupBinding beta baseCtx of
         Nothing ->
           typeError ["Unbound variable (2)", ind1 beta]
-        Just (HasType termType) ->
+        Just (Ctx.HasType termType) ->
           typeError
             [ "Cannot instantiate existential to term variable."
             , ind1 beta
@@ -392,37 +138,37 @@ instantiateToSubtypeOf = \v t ctx -> go ctx v t
             , ind1 termType
             ]
         -- InstLReach
-        Just (IsExistential Nothing)
-          | definedBefore baseCtx alpha beta ->
-              solveExistential beta (MonoVar alpha) baseCtx
+        Just (Ctx.IsExistential Nothing)
+          | Ctx.definedBefore baseCtx alpha beta ->
+              Ctx.solveExistential beta (Ctx.MonoVar alpha) baseCtx
         -- InstLSolve (via solved variable)
-        Just (IsExistential (Just solved)) ->
+        Just (Ctx.IsExistential (Just solved)) ->
           -- Really this should not happen, bacause we use substCtxInType before
           -- each recursion
-          solveExistential alpha solved baseCtx
+          Ctx.solveExistential alpha solved baseCtx
         -- InstLSolve (existential refers to outer universal or unsolved existential)
         Just _ ->
-          solveExistential alpha (MonoVar beta) baseCtx
+          Ctx.solveExistential alpha (Ctx.MonoVar beta) baseCtx
     -- InstLSolve (via unit-as-monotype)
-    TUnit -> solveExistential alpha MonoUnit baseCtx
+    TUnit -> Ctx.solveExistential alpha Ctx.MonoUnit baseCtx
     -- InstLArr
     (TFunction argType retType) -> do
-      argExists <- freshTypeVar "InstLArr_arg"
-      retExists <- freshTypeVar "InstLArr_ret"
-      execCtx baseCtx do
-        articulateExistential
+      argExists <- FreshVar.freshVar "InstLArr_arg"
+      retExists <- FreshVar.freshVar "InstLArr_ret"
+      CtxState.execCtx baseCtx do
+        CtxState.articulateExistential
           alpha
           [retExists, argExists]
-          (MonoFunction (MonoVar argExists) (MonoVar retExists))
-        onCtx_ $ instantiateToSupertypeOf argType argExists
-        retType' <- getCtx <&> \ctx -> substCtxInType ctx retType
-        onCtx_ $ instantiateToSubtypeOf retExists retType'
+          (Ctx.MonoFunction (Ctx.MonoVar argExists) (Ctx.MonoVar retExists))
+        CtxState.onCtx $ instantiateToSupertypeOf argType argExists
+        retType' <- CtxState.getCtx <&> \ctx -> Ctx.substCtxInType ctx retType
+        CtxState.onCtx $ instantiateToSubtypeOf retExists retType'
     -- InstLAIIR
-    (TForall univName univType) -> execCtx baseCtx do
+    (TForall univName univType) -> CtxState.execCtx baseCtx do
       let univVar = NamedVar univName
-      bindUniversal univVar
-      onCtx_ $ instantiateToSubtypeOf alpha univType
-      onCtx_ $ pure . dropEntriesUntilBinding_ univVar
+      CtxState.bindUniversal univVar
+      CtxState.onCtx $ instantiateToSubtypeOf alpha univType
+      CtxState.dropEntriesUntilBinding_ univVar
 
 -- | Instantiate the var to a supertype of the type
 instantiateToSupertypeOf :: Tipe -> Var -> Ctx -> TC Ctx
@@ -430,10 +176,10 @@ instantiateToSupertypeOf = \t v ctx -> go ctx v t
  where
   go :: Ctx -> Var -> Tipe -> TC Ctx
   go baseCtx alpha = \case
-    (TVar beta) -> case lookupBinding beta baseCtx of
+    (TVar beta) -> case Ctx.lookupBinding beta baseCtx of
       Nothing ->
         typeError ["Unbound variable (1)", ind1 beta]
-      Just (HasType termType) ->
+      Just (Ctx.HasType termType) ->
         typeError
           [ "Cannot instantiate existential to term variable."
           , ind1 beta
@@ -441,32 +187,32 @@ instantiateToSupertypeOf = \t v ctx -> go ctx v t
           , ind1 termType
           ]
       -- InstRReach
-      Just (IsExistential Nothing)
-        | definedBefore baseCtx alpha beta ->
-            solveExistential beta (MonoVar alpha) baseCtx
+      Just (Ctx.IsExistential Nothing)
+        | Ctx.definedBefore baseCtx alpha beta ->
+            Ctx.solveExistential beta (Ctx.MonoVar alpha) baseCtx
       -- InstRSolve (via solved variable)
-      Just (IsExistential (Just solved)) ->
+      Just (Ctx.IsExistential (Just solved)) ->
         -- Really this should not happen, bacause we use substCtxInType before
         -- each recursion
-        solveExistential alpha solved baseCtx
+        Ctx.solveExistential alpha solved baseCtx
       -- InstRSolve (existential refers to outer universal or unsolved existential)
       Just _ ->
-        solveExistential alpha (MonoVar beta) baseCtx
+        Ctx.solveExistential alpha (Ctx.MonoVar beta) baseCtx
     -- InstRSolve (via unit-as-monotype)
-    TUnit -> solveExistential alpha MonoUnit baseCtx
+    TUnit -> Ctx.solveExistential alpha Ctx.MonoUnit baseCtx
     -- InstRArr
-    TFunction argType retType -> execCtx baseCtx do
-      argExists <- freshTypeVar "InstRArr_arg"
-      retExists <- freshTypeVar "InstRArr_ret"
-      articulateExistential
+    TFunction argType retType -> CtxState.execCtx baseCtx do
+      argExists <- FreshVar.freshVar "InstRArr_arg"
+      retExists <- FreshVar.freshVar "InstRArr_ret"
+      CtxState.articulateExistential
         alpha
         [retExists, argExists]
-        (MonoFunction (MonoVar argExists) (MonoVar retExists))
-      onCtx_ $ instantiateToSubtypeOf argExists argType
-      retType' <- getCtx <&> \ctx -> substCtxInType ctx retType
-      onCtx_ $ instantiateToSupertypeOf retType' retExists
+        (Ctx.MonoFunction (Ctx.MonoVar argExists) (Ctx.MonoVar retExists))
+      CtxState.onCtx $ instantiateToSubtypeOf argExists argType
+      retType' <- CtxState.getCtx <&> \ctx -> Ctx.substCtxInType ctx retType
+      CtxState.onCtx $ instantiateToSupertypeOf retType' retExists
     -- InstRAIIL
-    (TForall univName univType) -> execCtx baseCtx do
+    (TForall univName univType) -> CtxState.execCtx baseCtx do
       let univVar = NamedVar univName
       -- If alpha should be a supertype of a Forall, it cannot be a monotype,
       -- so indeed we should not solve the existential here!
@@ -477,112 +223,81 @@ instantiateToSupertypeOf = \t v ctx -> go ctx v t
       -- "Here, we introduce a new variable α^ to go under the universal
       --  quantifier; then, instantiation applies InstRReach to set α^, not β^.
       --  Hence, β^ is, correctly, not constrained by this subtyping problem"
-      markExistential univVar
-      bindOpenExistential univVar
-      onCtx_ \ctx -> instantiateToSupertypeOf univType alpha ctx
-      onCtx_ $ pure . dropEntriesUntilMarkerOf univVar
-
-varIsBoundToAType :: ReportTypeErrors m => Ctx -> Var -> m ()
-varIsBoundToAType ctx var =
-  case lookupBinding var ctx of
-    Just IsUniversal -> pure ()
-    Just IsExistential{} -> pure ()
-    Just (HasType termType) ->
-      typeError
-        [ "Expected a type, but"
-        , ind [show var]
-        , "is a term of type"
-        , ind [show termType]
-        ]
-    Nothing ->
-      typeError ["Unbound var (3)", ind [show var]]
-
-varIsBoundToATerm :: ReportTypeErrors m => Ctx -> Var -> m Tipe
-varIsBoundToATerm ctx var =
-  case lookupBinding var ctx of
-    Just (HasType termType) -> pure termType
-    Just IsUniversal -> errorBoundToType
-    Just IsExistential{} -> errorBoundToType
-    Nothing ->
-      typeError ["Unbound var (4)", ind [show var]]
- where
-  errorBoundToType =
-    typeError
-      [ "Expected a term, but"
-      , ind [show var]
-      , "is a Type."
-      ]
+      CtxState.markExistential univVar
+      CtxState.bindOpenExistential univVar
+      CtxState.onCtx $ instantiateToSupertypeOf univType alpha
+      CtxState.dropEntriesUntilMarkerOf univVar
 
 --------------------------------------------------------------------------------
 -- Type checking
 
 typeComplete :: Expr -> TC Tipe
 typeComplete expr = do
-  (tipe, finalCtx) <- runCtx emptyCtx (typeSynth expr)
-  pure $ substCtxInType finalCtx tipe
+  (tipe, finalCtx) <- CtxState.runCtx Ctx.emptyCtx (typeSynth expr)
+  pure $ Ctx.substCtxInType finalCtx tipe
 
-typeSynth :: Expr -> CtxStateT TC Tipe
+typeSynth :: Expr -> CtxState.CtxStateT TC Tipe
 typeSynth = goSynth
  where
-  goSynth :: Expr -> CtxStateT TC Tipe
+  goSynth :: Expr -> CtxState.CtxStateT TC Tipe
   goSynth = \case
     -- Var
     EVar varName ->
-      withCtx \ctx -> varIsBoundToATerm ctx varName
+      CtxState.varIsBoundToATerm varName
     -- Anno
     EAnno expr tipe -> do
-      withCtx \ctx -> isWellFormedType ctx tipe
+      CtxState.withCtx \ctx -> Ctx.isWellFormedType ctx tipe
       typeCheck expr tipe
       pure tipe
     -- ->E
     expr@(EApply callee argument) -> do
       calleeType <- do
         calleeType <- goSynth callee
-        ctx <- getCtx
-        pure $ substCtxInType ctx calleeType
+        ctx <- CtxState.getCtx
+        pure $ Ctx.substCtxInType ctx calleeType
       typeApply expr calleeType argument
     -- 1I⇒
     EUnit -> pure TUnit
     -- ->I⇒
     ELam argName body -> do
       let argVar = NamedVar argName
-      alpha <- freshTypeVar "->I⇒_arg"
+      alpha <- FreshVar.freshVar "->I⇒_arg"
       let argType = TVar alpha
-      beta <- freshTypeVar "->I⇒_ret"
+      beta <- FreshVar.freshVar "->I⇒_ret"
       let retType = TVar beta
-      bindOpenExistential alpha
-      bindOpenExistential beta
-      bindTermVar argVar argType
+      CtxState.bindOpenExistential alpha
+      CtxState.bindOpenExistential beta
+      CtxState.bindTermVar argVar argType
       typeCheck body retType
-      onCtx_ $ pure . dropEntriesUntilBinding_ argVar
+      CtxState.dropEntriesUntilBinding_ argVar
       pure (TFunction argType retType)
 
-typeCheck :: Expr -> Tipe -> CtxStateT TC ()
+typeCheck :: Expr -> Tipe -> CtxState.CtxStateT TC ()
 typeCheck = goCheck
  where
-  goCheck :: Expr -> Tipe -> CtxStateT TC ()
+  goCheck :: Expr -> Tipe -> CtxState.CtxStateT TC ()
   -- ForallI
   goCheck expr (TForall univName univType) = do
     let forallVar = NamedVar univName
-    bindUniversal forallVar
+    CtxState.bindUniversal forallVar
     goCheck expr univType
-    onCtx_ $ pure . dropEntriesUntilBinding_ forallVar
+    CtxState.dropEntriesUntilBinding_ forallVar
   -- ->I
   goCheck (ELam argName body) (TFunction argType retType) = do
     let argVar = NamedVar argName
-    bindTermVar argVar argType
+    CtxState.bindTermVar argVar argType
     goCheck body retType
-    onCtx_ $ pure . dropEntriesUntilBinding_ argVar
+    CtxState.dropEntriesUntilBinding_ argVar
   -- 1I
   goCheck EUnit TUnit = pure ()
   -- Sub
   goCheck expr expectedType = do
     foundType <- typeSynth expr
-    onCtx_ \ctx ->
+    CtxState.onCtx \ctx ->
       isSubtypeOf
         ctx
-        (substCtxInType ctx foundType)
-        (substCtxInType ctx expectedType)
+        (Ctx.substCtxInType ctx foundType)
+        (Ctx.substCtxInType ctx expectedType)
         `catchTypeError` \err ->
           typeError
             [ err
@@ -590,13 +305,13 @@ typeCheck = goCheck
             , ind [show expr]
             ]
 
-typeApply :: Expr -> Tipe -> Expr -> CtxStateT TC Tipe
+typeApply :: Expr -> Tipe -> Expr -> CtxState.CtxStateT TC Tipe
 typeApply overallApplyExpr = goApply
  where
-  goApply :: Tipe -> Expr -> CtxStateT TC Tipe
+  goApply :: Tipe -> Expr -> CtxState.CtxStateT TC Tipe
   -- ForallApp
   goApply (TForall univName univType) argument = do
-    bindOpenExistential (NamedVar univName)
+    CtxState.bindOpenExistential (NamedVar univName)
     goApply univType argument
   -- ->App
   goApply (TFunction argType retType) argument = do
@@ -604,14 +319,14 @@ typeApply overallApplyExpr = goApply
     pure retType
   -- ExistApp
   goApply tipe@(TVar alpha) argument = do
-    lookupBinding alpha <$> getCtx >>= \case
-      Just (IsExistential Nothing) -> do
-        argVar <- freshTypeVar "ExistApp_arg"
-        retVar <- freshTypeVar "ExistApp_ret"
-        articulateExistential
+    Ctx.lookupBinding alpha <$> CtxState.getCtx >>= \case
+      Just (Ctx.IsExistential Nothing) -> do
+        argVar <- FreshVar.freshVar "ExistApp_arg"
+        retVar <- FreshVar.freshVar "ExistApp_ret"
+        CtxState.articulateExistential
           alpha
           [retVar, argVar]
-          (MonoFunction (MonoVar argVar) (MonoVar retVar))
+          (Ctx.MonoFunction (Ctx.MonoVar argVar) (Ctx.MonoVar retVar))
         typeCheck argument (TVar argVar)
         pure (TVar retVar)
       _ -> badApplyError tipe
@@ -637,107 +352,3 @@ substType replacedVar replacement = go
     | NamedVar boundVarName == replacedVar = t
     -- no shadowing
     | otherwise = TForall boundVarName (go boundType)
-
--- Effects stack
-type TC = StateT Word (Except String)
-type CtxStateT m = StateT Ctx m
-
-runCtx :: Ctx -> CtxStateT m a -> m (a, Ctx)
-runCtx = flip State.runStateT
-
-execCtx :: Monad m => Ctx -> CtxStateT m () -> m Ctx
-execCtx = flip State.execStateT
-
-evalCtx :: Monad m => Ctx -> CtxStateT m a -> m a
-evalCtx = flip State.evalStateT
-
-runTC :: TC a -> Either String a
-runTC = Except.runExcept . flip State.evalStateT 0
-
--- Implicit context management
-
-getCtx :: Monad m => CtxStateT m Ctx
-getCtx = State.get
-
-putCtx :: Monad m => Ctx -> CtxStateT m ()
-putCtx = State.put
-
-onCtx :: Monad m => (Ctx -> m (a, Ctx)) -> CtxStateT m a
-onCtx = State.StateT
-
-onCtx_ :: Monad m => (Ctx -> m Ctx) -> CtxStateT m ()
-onCtx_ f = onCtx \ctx -> ((),) <$> f ctx
-
-withCtx :: Monad m => (Ctx -> m a) -> CtxStateT m a
-withCtx f = Trans.lift . f =<< getCtx
-
--- fresh type var
-
-class FreshTypeVar tc where
-  freshTypeVar :: String -> tc Var
-
-instance FreshTypeVar TC where
-  freshTypeVar tag = do
-    fresh <- State.get
-    State.modify' succ
-    pure $ FreshVar tag fresh
-
-instance MonadTrans mt => FreshTypeVar (mt TC) where
-  freshTypeVar = Trans.lift . freshTypeVar
-
--- Error reporting
-
-class Monad tc => ReportTypeErrors tc where
-  reportTypeError :: String -> tc a
-  catchTypeError :: tc a -> (String -> tc a) -> tc a
-
-instance ReportTypeErrors TC where
-  reportTypeError = Trans.lift . Except.throwE
-  catchTypeError = State.liftCatch Except.catchE
-
-instance (Monad m, ReportTypeErrors m) => ReportTypeErrors (CtxStateT m) where
-  reportTypeError = Trans.lift . reportTypeError
-  catchTypeError = State.liftCatch catchTypeError
-
-typeError :: ReportTypeErrors tc => [String] -> tc a
-typeError = reportTypeError . List.intercalate "\n"
-
-ind :: [String] -> String
-ind = List.intercalate "\n" . fmap ("  " <>)
-
-ind1 :: Show a => a -> String
-ind1 x = ind [show x]
-
-expectRight :: TC a -> a
-expectRight = either error id . runTC
-
---------------------------------------------------------------------------------
--- Example
-
-test_id :: Expr
-test_id = ELam "x" (EVar (NamedVar "x"))
-
-test_const :: Expr
-test_const = ELam "x" (ELam "y" (EVar (NamedVar "x")))
-
-test_constUnit :: Expr
-test_constUnit = EApply test_const EUnit
-
-{-
-
->>> expectRight . typeComplete $ test_id
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
-
->>> expectRight . typeComplete $ EAnno test_id (TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))))
-TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
-
->>> expectRight . typeComplete $ test_const
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
-
->>> expectRight . typeComplete $ ELam "x" EUnit
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) TUnit
-
->>> expectRight . typeComplete $ test_constUnit
-TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
-
--}
