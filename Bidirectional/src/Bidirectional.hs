@@ -59,6 +59,63 @@ TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
 --------------------------------------------------------------------------------
 -- Subtyping
 
+{- | "A isSubtypeOf B" means "A is more polymorphic than B".
+ In other words: A has some universal binders (TForalls), and there is a way
+ to bind the variables on those universals such that we get B.
+
+ (<:Unit, <:->)
+ This function traverses the two types to make sure that they match. Functions
+ have to match Functions, Units have to match Units.
+
+ (<:ForallR)
+ If we find a Forall on B, it means B is polymorphic. Here, B has the form
+ "Forall x C", so the question we want to answer is "is A more polymorphic than
+ Forall x C?"
+ What we do here is:
+ - "Pretend" we instatiated _x_ to something. This is done by placing _x_ in the
+   context as a Universal.
+ - In this new context, we can talk about C (the thing that was inside B's
+   Forall) as a standalone type. B is clearly more polymorphic than C, since it
+   had one extra Forall (the one we just bound in the context).
+ - Check whether A is a subtype of B in this new context. This seems weird,
+   why does that make sense? Let's see:
+   * If A is _more polymorphic than B_, and _B is more polymorphic than C_,
+     than indeed A should be more polymorphic than C.
+   * If A was _not more polymorphic than B_, that means we could only make A and
+     B match by carefully instantiating some Foralls in B to match A (or maybe
+     not even then, if there are not enough Foralls). But we just bound one
+     of these Foralls to a Universal, which means it's not "up for grabs"
+     anymore. So even if A "less polymorphic" than B, and C is "less
+     polymorphic" than B, this will not make A and C match because C will have
+     references to a Universal that does not exist in A.
+
+ (<:ForallL)
+ Whenever we find a Forall on A, we know that the type underneath it has a
+ "hole". The "hole" is a _opportunity for instantiating_ the type that is
+ underneath the Forall. This hole is represented by an existential variable in
+ the context.
+ Why is finding a Forall in A different from finding a Forall in B?
+ Well, we want to know if "A is more polymorphic than B". A Forall in B
+ makes it _more polymorphic_, thus it makes the problem _more difficult_.
+ A Forall in B is an _additional requirement that A must also be polymorphic
+ in a fitting way._
+ On the other hand, a Forall in A is _an opportunity to sacrifice polymorphism
+ in order to fit with B_.
+ The goal, really, is to get A to be the same as B. Each Forall in A is
+ a chance to make it more similar to B. The existential variables track these
+ chances, and every time we solve an existential, we get less polymorphic, but
+ closer to the goal.
+
+ (InstantiateL, InstantiateR)
+ As we keep walking down the tree, we may find places where an unsolved
+ existential variable (a hole) on type A corresponds to something else on type
+ B, such as a TUnit or a Function. When that happens, we attempt to instantiate
+ it: meaning that we will try to find a value that fits in the hole in type A,
+ to make it match whatever we found on the corresponding part of type B.
+
+ The instantiation process works by attaching solutions to the existential
+ variables in the context.
+-}
 isSubtypeOf :: Ctx -> Tipe -> Tipe -> TC Ctx
 isSubtypeOf ctx = go
  where
@@ -94,14 +151,13 @@ isSubtypeOf ctx = go
     dirtyCtx <- isSubtypeOf extendedCtx typeA univType
     pure $ dropEntriesUntilBinding_ univVar dirtyCtx
   -- <=ForallL
-  go (TForall boundName typeA) typeB = do
-    existentialVar <- FreshVar.freshVar "<=ForallL"
+  go (TForall univName univType) typeB = do
+    let existentialVar = NamedVar univName
     existentialContext <-
       pure ctx
         >>= markExistential existentialVar
         >>= bindOpenExistential existentialVar
-    let boundA = substType (NamedVar boundName) (TVar existentialVar) typeA
-    dirtyCtx <- isSubtypeOf existentialContext boundA typeB
+    dirtyCtx <- isSubtypeOf existentialContext univType typeB
     pure $ dropEntriesUntilMarkerOf existentialVar dirtyCtx
   -- otherwise, fail!
   go a b =
