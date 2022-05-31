@@ -19,6 +19,7 @@ import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State.Strict (StateT)
 import Control.Monad.Trans.State.Strict qualified as StateT
 import Data.Functor.Identity (Identity)
+import Data.Type.Equality (type (==))
 
 newtype FreshVal = MkFresh Word
 
@@ -46,10 +47,10 @@ instance (FreshTypeVar m, Monad m) => FreshTypeVar (ExceptT e m) where
 
 -- | Either work or lift over StateT
 instance
-  (Monad m, FreshOnStateT (TyEq FreshVal payload) payload m) =>
+  (Monad m, FreshOnStateT (FreshVal == payload) payload m) =>
   FreshTypeVar (StateT payload m)
   where
-  takeFresh = takeFreshOnStateT @(TyEq FreshVal payload)
+  takeFresh = takeFreshOnStateT @(FreshVal == payload)
 
 -- | Auxiliary class to dispatch over other layers of StateT
 class FreshOnStateT payloadIsFresh payload m where
@@ -63,8 +64,3 @@ instance (Monad m, payload ~ FreshVal) => FreshOnStateT 'True payload m where
 
 instance (Monad m, FreshTypeVar m) => FreshOnStateT 'False payload m where
   takeFreshOnStateT = Trans.lift takeFresh
-
--- Type equality
-type family TyEq a b where
-  TyEq a a = 'True
-  TyEq _ _ = 'False
