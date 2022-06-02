@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+
 module Bidirectional.Language where
 
 data Var

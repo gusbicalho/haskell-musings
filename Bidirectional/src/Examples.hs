@@ -1,6 +1,7 @@
 module Examples where
-import Bidirectional.Language
+
 import Bidirectional qualified
+import Bidirectional.Language
 import BidirectionalWithImplicitCtx qualified
 import BidirectionalWithPolyLam qualified
 
@@ -11,7 +12,12 @@ test_call_id :: Expr
 test_call_id = EApply (ELam "f" (EApply (EVar (NamedVar "f")) EUnit)) test_id
 
 test_anno_id :: Expr
-test_anno_id = EAnno test_id (TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))))
+test_anno_id =
+  EAnno
+    test_id
+    ( TForall (NamedVar "T") $
+        TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))
+    )
 
 test_const :: Expr
 test_const = ELam "x" (ELam "y" (EVar (NamedVar "x")))
@@ -26,15 +32,11 @@ test_const_higher_rank :: Expr
 test_const_higher_rank =
   EAnno
     test_const
-    (TForall
-      (NamedVar "T")
-      (TFunction
-        (TVar (NamedVar "T"))
-        (TForall
-          (NamedVar "U")
-          (TFunction
-            (TVar (NamedVar "U"))
-            (TVar (NamedVar "T"))))))
+    ( TForall (NamedVar "T") $
+        TFunction (TVar (NamedVar "T")) $
+          TForall (NamedVar "U") $
+            TFunction (TVar (NamedVar "U")) (TVar (NamedVar "T"))
+    )
 
 test_const_higher_rank_unit :: Expr
 test_const_higher_rank_unit = EApply test_const_higher_rank EUnit

@@ -14,8 +14,8 @@ import Bidirectional.ReportTypeErrors
 import Bidirectional.Subtyping (isSubtypeOf)
 import Control.Monad.Trans.Except (Except)
 import Control.Monad.Trans.Except qualified as Except
-import qualified Data.Maybe as Maybe
 import Data.Function ((&))
+import Data.Maybe qualified as Maybe
 
 --------------------------------------------------------------------------------
 -- Effects stack
@@ -84,9 +84,10 @@ typeSynth = goSynth
       typeCheck body retType
       funType <- Ctx.substCtxInType <$> CtxState.getCtx <*> pure (TFunction argType retType)
       (_, droppedEntries) <- CtxState.dropEntriesUntilMarkerOf alpha
-      let unsolvedExistentials = droppedEntries & Maybe.mapMaybe \case
-            Right (v, Ctx.IsExistential Nothing) -> Just v
-            _ -> Nothing
+      let unsolvedExistentials =
+            droppedEntries & Maybe.mapMaybe \case
+              Right (v, Ctx.IsExistential Nothing) -> Just v
+              _ -> Nothing
       pure (funType `generalizedOver` unsolvedExistentials)
 
 typeCheck :: Expr -> Tipe -> TC ()
