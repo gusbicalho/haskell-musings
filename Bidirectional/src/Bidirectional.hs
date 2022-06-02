@@ -5,7 +5,7 @@
 
 module Bidirectional where
 
-import Bidirectional.Context
+import Bidirectional.Context as Ctx
 import Bidirectional.FreshVar qualified as FreshVar
 import Bidirectional.Language
 import Bidirectional.ReportTypeErrors
@@ -62,25 +62,25 @@ TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
 
 typeComplete :: Expr -> TC Tipe
 typeComplete expr = do
-  (finalCtx, tipe) <- typeSynth emptyCtx expr
-  pure $ substCtxInType finalCtx tipe
+  (finalCtx, tipe) <- typeSynth Ctx.emptyCtx expr
+  pure $ Ctx.substCtxInType finalCtx tipe
 
-typeSynth :: Ctx -> Expr -> TC (Ctx, Tipe)
+typeSynth :: Ctx.Ctx -> Expr -> TC (Ctx.Ctx, Tipe)
 typeSynth ctx = goSynth
  where
-  goSynth :: Expr -> TC (Ctx, Tipe)
+  goSynth :: Expr -> TC (Ctx.Ctx, Tipe)
   goSynth = \case
     -- Var
-    EVar varName -> (ctx,) <$> varIsBoundToATerm ctx varName
+    EVar varName -> (ctx,) <$> Ctx.varIsBoundToATerm ctx varName
     -- Anno
     EAnno expr tipe -> do
-      isWellFormedType ctx tipe
+      Ctx.isWellFormedType ctx tipe
       ctx' <- typeCheck ctx expr tipe
       pure (ctx', tipe)
     -- ->E
     expr@(EApply callee argument) -> do
       (ctxAfterCallee, calleeType) <- goSynth callee
-      typeApply expr ctxAfterCallee (substCtxInType ctxAfterCallee calleeType) argument
+      typeApply expr ctxAfterCallee (Ctx.substCtxInType ctxAfterCallee calleeType) argument
     -- 1I⇒
     EUnit -> pure (ctx, TUnit)
     -- ->I⇒
@@ -92,66 +92,63 @@ typeSynth ctx = goSynth
       let retType = TVar beta
       extendedCtx <-
         pure ctx
-          >>= bindOpenExistential alpha
-          >>= bindOpenExistential beta
-          >>= bindTermVar argVar argType
+          >>= Ctx.bindOpenExistential alpha
+          >>= Ctx.bindOpenExistential beta
+          >>= Ctx.bindTermVar argVar argType
       dirtyCtx <- typeCheck extendedCtx body retType
       pure
-        ( dropEntriesUntilBinding_ argVar dirtyCtx
+        ( Ctx.dropEntriesUntilBinding_ argVar dirtyCtx
         , TFunction argType retType
         )
 
-typeCheck :: Ctx -> Expr -> Tipe -> TC Ctx
+typeCheck :: Ctx.Ctx -> Expr -> Tipe -> TC Ctx.Ctx
 typeCheck ctx = goCheck
  where
   -- ForallI
   goCheck expr (TForall univName univType) = do
     let forallVar = NamedVar univName
-    extendedCtx <- bindUniversal forallVar ctx
+    extendedCtx <- Ctx.bindUniversal forallVar ctx
     dirtyCtx <- typeCheck extendedCtx expr univType
-    pure (dropEntriesUntilBinding_ forallVar dirtyCtx)
+    pure (Ctx.dropEntriesUntilBinding_ forallVar dirtyCtx)
   -- ->I
   goCheck (ELam argName body) (TFunction argType retType) = do
     let argVar = NamedVar argName
-    extendedCtx <- bindTermVar argVar argType ctx
+    extendedCtx <- Ctx.bindTermVar argVar argType ctx
     dirtyCtx <- typeCheck extendedCtx body retType
-    pure (dropEntriesUntilBinding_ argVar dirtyCtx)
+    pure (Ctx.dropEntriesUntilBinding_ argVar dirtyCtx)
   -- 1I
   goCheck EUnit TUnit = pure ctx
   -- Sub
   goCheck expr expectedType = do
     (ctxAfterSynth, foundType) <- typeSynth ctx expr
-    isSubtypeOf
-      ctxAfterSynth
-      (substCtxInType ctxAfterSynth foundType)
-      (substCtxInType ctxAfterSynth expectedType)
-      `Except.catchE` \err ->
+    isSubtypeOf foundType expectedType ctxAfterSynth
+      `catchTypeError` \err ->
         typeError
           [ err
           , "when typechecking expression"
           , ind [show expr]
           ]
 
-typeApply :: Expr -> Ctx -> Tipe -> Expr -> TC (Ctx, Tipe)
+typeApply :: Expr -> Ctx.Ctx -> Tipe -> Expr -> TC (Ctx.Ctx, Tipe)
 typeApply overallApplyExpr = goApply
  where
   -- ForallApp
   goApply ctx (TForall univName univType) argument = do
-    extendedCtx <- bindOpenExistential (NamedVar univName) ctx
+    extendedCtx <- Ctx.bindOpenExistential (NamedVar univName) ctx
     goApply extendedCtx univType argument
   -- ->App
   goApply ctx (TFunction argType retType) argument = do
     typeCheck ctx argument argType <&> (,retType)
   -- ExistApp
   goApply ctx (TVar alpha) argument
-    | Just (IsExistential Nothing) <- lookupBinding alpha ctx = do
+    | Just (Ctx.IsExistential Nothing) <- Ctx.lookupBinding alpha ctx = do
         argVar <- FreshVar.freshVar "ExistApp_arg"
         retVar <- FreshVar.freshVar "ExistApp_ret"
         articulatedCtx <-
-          articulateExistential
+          Ctx.articulateExistential
             alpha
             [retVar, argVar]
-            (MonoFunction (MonoVar argVar) (MonoVar retVar))
+            (Ctx.MonoFunction (Ctx.MonoVar argVar) (Ctx.MonoVar retVar))
             ctx
         typeCheck articulatedCtx argument (TVar argVar) <&> (,TVar retVar)
   goApply _ctx other _ =

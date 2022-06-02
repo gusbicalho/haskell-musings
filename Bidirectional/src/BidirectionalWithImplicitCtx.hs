@@ -10,9 +10,9 @@ import Bidirectional.ContextState qualified as CtxState
 import Bidirectional.FreshVar qualified as FreshVar
 import Bidirectional.Language
 import Bidirectional.ReportTypeErrors
+import Bidirectional.Subtyping (isSubtypeOf)
 import Control.Monad.Trans.Except (Except)
 import Control.Monad.Trans.Except qualified as Except
-import Bidirectional.Subtyping (isSubtypeOf)
 
 -- Effects stack
 type TC = FreshVar.FreshT (Except String)
@@ -122,17 +122,13 @@ typeCheck = goCheck
   -- Sub
   goCheck expr expectedType = do
     foundType <- typeSynth expr
-    CtxState.onCtx \ctx ->
-      isSubtypeOf
-        ctx
-        (Ctx.substCtxInType ctx foundType)
-        (Ctx.substCtxInType ctx expectedType)
-        `catchTypeError` \err ->
-          typeError
-            [ err
-            , "when typechecking expression"
-            , ind [show expr]
-            ]
+    CtxState.onCtx (isSubtypeOf foundType expectedType)
+      `catchTypeError` \err ->
+        typeError
+          [ err
+          , "when typechecking expression"
+          , ind [show expr]
+          ]
 
 typeApply :: Expr -> Tipe -> Expr -> CtxState.CtxStateT TC Tipe
 typeApply overallApplyExpr = goApply

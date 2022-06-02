@@ -69,51 +69,52 @@ import Bidirectional.ReportTypeErrors qualified as ReportTypeErrors
  The instantiation process works by attaching solutions to the existential
  variables in the context.
 -}
-isSubtypeOf :: (ReportTypeErrors m, FreshTypeVar m) => Ctx.Ctx -> Tipe -> Tipe -> m Ctx.Ctx
-isSubtypeOf ctx = go
+isSubtypeOf :: (ReportTypeErrors m, FreshTypeVar m) => Tipe -> Tipe -> Ctx.Ctx -> m Ctx.Ctx
+isSubtypeOf = \a b ctx ->
+  go (Ctx.substCtxInType ctx a) (Ctx.substCtxInType ctx b) ctx
  where
   -- <:Unit
-  go TUnit TUnit = pure ctx
+  go TUnit TUnit ctx = pure ctx
   -- <:Var, <:Exvar
-  go (TVar v1) (TVar v2)
+  go (TVar v1) (TVar v2) ctx
     | v1 == v2 = do
         Ctx.varIsBoundToAType ctx v1
         pure ctx
   -- InstantiateL
-  go (TVar varA) typeB
+  go (TVar varA) typeB ctx
     | Just (Ctx.IsExistential Nothing) <- Ctx.lookupBinding varA ctx =
         do
           varA `Ctx.doesNotOccurFreeIn` typeB
           instantiateToSubtypeOf ctx varA typeB
   -- InstantiateR
-  go typeA (TVar varB)
+  go typeA (TVar varB) ctx
     | Just (Ctx.IsExistential Nothing) <- Ctx.lookupBinding varB ctx =
         do
           varB `Ctx.doesNotOccurFreeIn` typeA
           instantiateToSupertypeOf ctx typeA varB
   -- <:->
-  go (TFunction argA retA) (TFunction argB retB) = do
-    ctx' <- isSubtypeOf ctx argB argA
+  go (TFunction argA retA) (TFunction argB retB) ctx = do
+    ctx' <- go argB argA ctx
     let retA' = Ctx.substCtxInType ctx' retA
     let retB' = Ctx.substCtxInType ctx' retB
-    isSubtypeOf ctx' retA' retB'
+    go retA' retB' ctx'
   -- <:ForallR
-  go typeA (TForall univName univType) = do
+  go typeA (TForall univName univType) ctx = do
     let univVar = NamedVar univName
     extendedCtx <- Ctx.bindUniversal univVar ctx
-    dirtyCtx <- isSubtypeOf extendedCtx typeA univType
+    dirtyCtx <- go typeA univType extendedCtx
     pure $ Ctx.dropEntriesUntilBinding_ univVar dirtyCtx
   -- <=ForallL
-  go (TForall univName univType) typeB = do
+  go (TForall univName univType) typeB ctx = do
     let existentialVar = NamedVar univName
     existentialContext <-
       pure ctx
         >>= Ctx.markExistential existentialVar
         >>= Ctx.bindOpenExistential existentialVar
-    dirtyCtx <- isSubtypeOf existentialContext univType typeB
+    dirtyCtx <- go univType typeB existentialContext
     pure $ Ctx.dropEntriesUntilMarkerOf existentialVar dirtyCtx
   -- otherwise, fail!
-  go a b =
+  go a b _ctx =
     ReportTypeErrors.typeError
       [ "Type error."
       , ReportTypeErrors.ind [show a]
