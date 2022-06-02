@@ -19,6 +19,7 @@ library
     Bidirectional.FreshVar
     Bidirectional.Language
     Bidirectional.ReportTypeErrors
+    Bidirectional.Subtyping
     BidirectionalWithImplicitCtx
   build-depends:
     base ^>=4.16.1.0,
