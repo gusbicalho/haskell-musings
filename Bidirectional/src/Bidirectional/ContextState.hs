@@ -70,8 +70,19 @@ dropEntriesUntilBinding var = do
 dropEntriesUntilBinding_ :: Monad m => Var -> CtxStateT m ()
 dropEntriesUntilBinding_ var = onCtx $ pure . Ctx.dropEntriesUntilBinding_ var
 
-dropEntriesUntilMarkerOf :: Monad m => Var -> CtxStateT m ()
-dropEntriesUntilMarkerOf var = onCtx $ pure . Ctx.dropEntriesUntilMarkerOf var
+dropEntriesUntilMarkerOf ::
+  Monad m =>
+  Var ->
+  CtxStateT
+    m
+    ( Maybe Ctx.ExistentialMarker
+    , [Either Ctx.ExistentialMarker (Var, Ctx.CtxBinding)]
+    )
+dropEntriesUntilMarkerOf var = do
+  ctx <- getCtx
+  let (ctx', marker, droppedEntries) = Ctx.dropEntriesUntilMarkerOf var ctx
+  putCtx ctx'
+  pure (marker, droppedEntries)
 
 --------------------------------------------------------------------------------
 -- Queries to the implicit state

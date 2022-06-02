@@ -18,5 +18,5 @@ data Tipe
   = TUnit
   | TVar Var
   | TFunction Tipe Tipe
-  | TForall String Tipe
+  | TForall Var Tipe
   deriving stock (Eq, Ord, Show)

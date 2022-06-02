@@ -70,8 +70,7 @@ typeCheck :: Ctx.Ctx -> Expr -> Tipe -> TC Ctx.Ctx
 typeCheck ctx = goCheck
  where
   -- ForallI
-  goCheck expr (TForall univName univType) = do
-    let forallVar = NamedVar univName
+  goCheck expr (TForall forallVar univType) = do
     extendedCtx <- Ctx.bindUniversal forallVar ctx
     dirtyCtx <- typeCheck extendedCtx expr univType
     pure (Ctx.dropEntriesUntilBinding_ forallVar dirtyCtx)
@@ -98,8 +97,8 @@ typeApply :: Expr -> Ctx.Ctx -> Tipe -> Expr -> TC (Ctx.Ctx, Tipe)
 typeApply overallApplyExpr = goApply
  where
   -- ForallApp
-  goApply ctx (TForall univName univType) argument = do
-    extendedCtx <- Ctx.bindOpenExistential (NamedVar univName) ctx
+  goApply ctx (TForall forallVar univType) argument = do
+    extendedCtx <- Ctx.bindOpenExistential forallVar ctx
     goApply extendedCtx univType argument
   -- ->App
   goApply ctx (TFunction argType retType) argument = do
@@ -132,8 +131,8 @@ substType replacedVar replacement = go
   go t@(TVar var)
     | var == replacedVar = replacement
     | otherwise = t
-  go t@(TForall boundVarName boundType)
+  go t@(TForall forallVar boundType)
     -- shadowing
-    | NamedVar boundVarName == replacedVar = t
+    | forallVar == replacedVar = t
     -- no shadowing
-    | otherwise = TForall boundVarName (go boundType)
+    | otherwise = TForall forallVar (go boundType)

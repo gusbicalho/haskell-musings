@@ -70,8 +70,7 @@ typeCheck :: Expr -> Tipe -> TC ()
 typeCheck = goCheck
  where
   -- ForallI
-  goCheck expr (TForall univName univType) = do
-    let forallVar = NamedVar univName
+  goCheck expr (TForall forallVar univType) = do
     CtxState.bindUniversal forallVar
     goCheck expr univType
     CtxState.dropEntriesUntilBinding_ forallVar
@@ -98,8 +97,8 @@ typeApply :: Expr -> Tipe -> Expr -> TC Tipe
 typeApply overallApplyExpr = goApply
  where
   -- ForallApp
-  goApply (TForall univName univType) argument = do
-    CtxState.bindOpenExistential (NamedVar univName)
+  goApply (TForall forallVar univType) argument = do
+    CtxState.bindOpenExistential forallVar
     goApply univType argument
   -- ->App
   goApply (TFunction argType retType) argument = do
@@ -135,8 +134,8 @@ substType replacedVar replacement = go
   go t@(TVar var)
     | var == replacedVar = replacement
     | otherwise = t
-  go t@(TForall boundVarName boundType)
+  go t@(TForall forallVar boundType)
     -- shadowing
-    | NamedVar boundVarName == replacedVar = t
+    | forallVar == replacedVar = t
     -- no shadowing
-    | otherwise = TForall boundVarName (go boundType)
+    | otherwise = TForall forallVar (go boundType)

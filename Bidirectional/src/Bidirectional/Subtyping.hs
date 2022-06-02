@@ -5,7 +5,7 @@ module Bidirectional.Subtyping (isSubtypeOf) where
 import Bidirectional.Context qualified as Ctx
 import Bidirectional.FreshVar (FreshTypeVar)
 import Bidirectional.FreshVar qualified as FreshVar
-import Bidirectional.Language (Tipe (..), Var (NamedVar))
+import Bidirectional.Language (Tipe (..), Var)
 import Bidirectional.ReportTypeErrors (ReportTypeErrors)
 import Bidirectional.ReportTypeErrors qualified as ReportTypeErrors
 
@@ -99,20 +99,18 @@ isSubtypeOf = \a b ctx ->
     let retB' = Ctx.substCtxInType ctx' retB
     go retA' retB' ctx'
   -- <:ForallR
-  go typeA (TForall univName univType) ctx = do
-    let univVar = NamedVar univName
-    extendedCtx <- Ctx.bindUniversal univVar ctx
+  go typeA (TForall forallVar univType) ctx = do
+    extendedCtx <- Ctx.bindUniversal forallVar ctx
     dirtyCtx <- go typeA univType extendedCtx
-    pure $ Ctx.dropEntriesUntilBinding_ univVar dirtyCtx
+    pure $ Ctx.dropEntriesUntilBinding_ forallVar dirtyCtx
   -- <=ForallL
-  go (TForall univName univType) typeB ctx = do
-    let existentialVar = NamedVar univName
+  go (TForall forallVar univType) typeB ctx = do
     existentialContext <-
       pure ctx
-        >>= Ctx.markExistential existentialVar
-        >>= Ctx.bindOpenExistential existentialVar
+        >>= Ctx.markExistential forallVar
+        >>= Ctx.bindOpenExistential forallVar
     dirtyCtx <- go univType typeB existentialContext
-    pure $ Ctx.dropEntriesUntilMarkerOf existentialVar dirtyCtx
+    pure $ Ctx.dropEntriesUntilMarkerOf_ forallVar dirtyCtx
   -- otherwise, fail!
   go a b _ctx =
     ReportTypeErrors.typeError
@@ -162,11 +160,10 @@ instantiateToSubtypeOf ctx alpha = \case
     ctxAfterArgument <- instantiateToSupertypeOf articulatedCtx argType argExists
     instantiateToSubtypeOf ctxAfterArgument retExists (Ctx.substCtxInType ctxAfterArgument retType)
   -- InstLAIIR
-  (TForall univName univType) -> do
-    let univVar = NamedVar univName
-    extendedCtx <- Ctx.bindUniversal univVar ctx
+  (TForall forallVar univType) -> do
+    extendedCtx <- Ctx.bindUniversal forallVar ctx
     dirtyCtx <- instantiateToSubtypeOf extendedCtx alpha univType
-    pure $ Ctx.dropEntriesUntilBinding_ univVar dirtyCtx
+    pure $ Ctx.dropEntriesUntilBinding_ forallVar dirtyCtx
 
 -- | Instantiate the var to a supertype of the type
 instantiateToSupertypeOf :: (ReportTypeErrors m, FreshTypeVar m) => Ctx.Ctx -> Tipe -> Var -> m Ctx.Ctx
@@ -210,8 +207,7 @@ instantiateToSupertypeOf ctx = flip go
       ctxAfterArgument <- instantiateToSubtypeOf articulatedCtx argExists argType
       instantiateToSupertypeOf ctxAfterArgument (Ctx.substCtxInType ctxAfterArgument retType) retExists
     -- InstRAIIL
-    (TForall univName univType) -> do
-      let univVar = NamedVar univName
+    (TForall forallVar univType) -> do
       -- If alpha should be a supertype of a Forall, it cannot be a monotype,
       -- so indeed we should not solve the existential here!
       -- A new existential variable is created so that typechecking can proceeed
@@ -223,7 +219,7 @@ instantiateToSupertypeOf ctx = flip go
       --  Hence, β^ is, correctly, not constrained by this subtyping problem"
       extendedCtx <-
         pure ctx
-          >>= Ctx.markExistential univVar
-          >>= Ctx.bindOpenExistential univVar
+          >>= Ctx.markExistential forallVar
+          >>= Ctx.bindOpenExistential forallVar
       dirtyCtx <- instantiateToSupertypeOf extendedCtx univType alpha
-      pure $ Ctx.dropEntriesUntilMarkerOf univVar dirtyCtx
+      pure $ Ctx.dropEntriesUntilMarkerOf_ forallVar dirtyCtx

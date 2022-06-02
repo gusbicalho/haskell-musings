@@ -130,8 +130,20 @@ dropEntriesUntilBinding target = go []
 dropEntriesUntilBinding_ :: Var -> Ctx -> Ctx
 dropEntriesUntilBinding_ target = (\(ctx, _, _) -> ctx) . dropEntriesUntilBinding target
 
-dropEntriesUntilMarkerOf :: Var -> Ctx -> Ctx
-dropEntriesUntilMarkerOf target = go
+dropEntriesUntilMarkerOf :: Var -> Ctx -> (Ctx, Maybe ExistentialMarker, [Either ExistentialMarker (Var, CtxBinding)])
+dropEntriesUntilMarkerOf target = go []
+ where
+  go dropped ctx@MkCtx{ctxBindings = []} = (ctx, Nothing, dropped)
+  go dropped ctx@MkCtx{ctxBindings = entry@(Right (var, _)) : more, ctxDomain} =
+    go (entry : dropped) ctx{ctxBindings = more, ctxDomain = Set.delete var ctxDomain}
+  go dropped ctx@MkCtx{ctxBindings = entry@(Left marker@(MkExistentialMarker var)) : more, ctxMarkers} =
+    let cleanCtx = ctx{ctxBindings = more, ctxMarkers = Set.delete marker ctxMarkers}
+     in if var == target
+          then (cleanCtx, Just marker, dropped)
+          else go (entry : dropped) cleanCtx
+
+dropEntriesUntilMarkerOf_ :: Var -> Ctx -> Ctx
+dropEntriesUntilMarkerOf_ target = go
  where
   go ctx@MkCtx{ctxBindings = []} = ctx
   go ctx@MkCtx{ctxBindings = Right (var, _) : more, ctxDomain} =
@@ -180,9 +192,9 @@ isWellFormedType ctx = \case
     isWellFormedType ctx argType
     isWellFormedType ctx retType
   -- ForallWF
-  TForall boundName boundType -> do
-    extendedCtx <- bindUniversal (NamedVar boundName) ctx
-    isWellFormedType extendedCtx boundType
+  TForall forallVar univType -> do
+    extendedCtx <- bindUniversal forallVar ctx
+    isWellFormedType extendedCtx univType
 
 doesNotOccurFreeIn :: ReportTypeErrors m => Var -> Tipe -> m ()
 doesNotOccurFreeIn target fullType = go fullType
@@ -196,9 +208,9 @@ doesNotOccurFreeIn target fullType = go fullType
           , ind1 fullType
           ]
     | otherwise = pure ()
-  go (TForall univName univType)
+  go (TForall forallVar univType)
     -- shadowing
-    | NamedVar univName == target = pure ()
+    | forallVar == target = pure ()
     -- no shadowing
     | otherwise = go univType
   go TUnit = pure ()

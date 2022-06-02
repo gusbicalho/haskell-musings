@@ -10,7 +10,7 @@ test_call_id :: Expr
 test_call_id = EApply (ELam "f" (EApply (EVar (NamedVar "f")) EUnit)) test_id
 
 test_anno_id :: Expr
-test_anno_id = EAnno test_id (TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))))
+test_anno_id = EAnno test_id (TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))))
 
 test_const :: Expr
 test_const = ELam "x" (ELam "y" (EVar (NamedVar "x")))
@@ -44,7 +44,7 @@ TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
 TUnit
 
 >>> testBidirectional $ test_anno_id
-TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
+TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
 
 >>> testBidirectional $ test_const
 TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
@@ -65,7 +65,7 @@ TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
 TUnit
 
 >>> testBidirectionalWithImplicitCtx $ test_anno_id
-TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
+TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
 
 >>> testBidirectionalWithImplicitCtx $ test_const
 TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
