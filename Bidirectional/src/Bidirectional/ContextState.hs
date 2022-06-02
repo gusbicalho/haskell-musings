@@ -17,6 +17,7 @@ module Bidirectional.ContextState (
   dropEntriesUntilBinding,
   dropEntriesUntilBinding_,
   dropEntriesUntilMarkerOf,
+  defaultAllUnsolvedExistentials,
   -- Queries
   varIsBoundToATerm,
   varIsBoundToAType,
@@ -83,6 +84,9 @@ dropEntriesUntilMarkerOf var = do
   let (ctx', marker, droppedEntries) = Ctx.dropEntriesUntilMarkerOf var ctx
   putCtx ctx'
   pure (marker, droppedEntries)
+
+defaultAllUnsolvedExistentials :: ReportTypeErrors m => Ctx.Mono -> CtxStateT m ()
+defaultAllUnsolvedExistentials = onCtx . Ctx.defaultAllUnsolvedExistentials
 
 --------------------------------------------------------------------------------
 -- Queries to the implicit state

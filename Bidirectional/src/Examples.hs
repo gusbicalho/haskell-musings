@@ -58,8 +58,11 @@ testBidirectionalWithPolyLam = expectRight . BidirectionalWithPolyLam.typeComple
 --------------------------------------------------------------------------------
 Bidirectional
 
+id has type Unit -> Unit because of defaulting - in fact the arguments are
+unconstrained.
+
 >>> testBidirectional $ test_id
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
+TFunction TUnit TUnit
 
 >>> testBidirectional $ test_call_id
 TUnit
@@ -68,13 +71,13 @@ TUnit
 TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
 
 >>> testBidirectional $ test_const
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
+TFunction TUnit (TFunction TUnit TUnit)
 
 >>> testBidirectional $ test_always_unit
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) TUnit
+TFunction TUnit TUnit
 
 >>> testBidirectional $ test_constUnit
-TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
+TFunction TUnit TUnit
 
 >>> testBidirectional $ test_const_higher_rank
 TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TForall (NamedVar "U") (TFunction (TVar (NamedVar "U")) (TVar (NamedVar "T")))))
@@ -86,7 +89,7 @@ TForall (NamedVar "U") (TFunction (TVar (NamedVar "U")) TUnit)
 BidirectionalWithImplicitCtx
 
 >>> testBidirectionalWithImplicitCtx $ test_id
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
+TFunction TUnit TUnit
 
 >>> testBidirectionalWithImplicitCtx $ test_call_id
 TUnit
@@ -95,13 +98,13 @@ TUnit
 TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
 
 >>> testBidirectionalWithImplicitCtx $ test_const
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
+TFunction TUnit (TFunction TUnit TUnit)
 
 >>> testBidirectionalWithImplicitCtx $ test_always_unit
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) TUnit
+TFunction TUnit TUnit
 
 >>> testBidirectionalWithImplicitCtx $ test_constUnit
-TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
+TFunction TUnit TUnit
 
 >>> testBidirectionalWithImplicitCtx $ test_const_higher_rank
 TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TForall (NamedVar "U") (TFunction (TVar (NamedVar "U")) (TVar (NamedVar "T")))))
@@ -111,6 +114,10 @@ TForall (NamedVar "U") (TFunction (TVar (NamedVar "U")) TUnit)
 
 --------------------------------------------------------------------------------
 BidirectionalWithPolyLam
+
+Here we infer polymorphic types for id and others, by generalizing instead of
+defaulting at the end. Notice how test_constUnit and test_const_higher_rank_unit
+have equivalent types now.
 
 >>> testBidirectionalWithPolyLam $ test_id
 TForall (FreshVar "->I\8658_arg" 0) (TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0)))
@@ -128,7 +135,7 @@ TForall (FreshVar "->I\8658_arg" 0) (TForall (FreshVar "InstRArr_arg" 4) (TFunct
 TForall (FreshVar "->I\8658_arg" 0) (TFunction (TVar (FreshVar "->I\8658_arg" 0)) TUnit)
 
 >>> testBidirectionalWithPolyLam $ test_constUnit
-TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
+TForall (FreshVar "InstRArr_arg" 4) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit)
 
 >>> testBidirectionalWithPolyLam $ test_const_higher_rank
 TForall (NamedVar "T") (TFunction (TVar (NamedVar "T")) (TForall (NamedVar "U") (TFunction (TVar (NamedVar "U")) (TVar (NamedVar "T")))))

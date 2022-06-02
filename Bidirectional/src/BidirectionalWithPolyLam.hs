@@ -32,7 +32,14 @@ typeComplete :: Expr -> Either String Tipe
 typeComplete expr = runTC do
   tipe <- typeSynth expr
   finalCtx <- CtxState.getCtx
-  pure $ Ctx.substCtxInType finalCtx tipe
+  -- Instead of defaulting to Unit, we generalize the entire program like we
+  -- did when synthesizing type for Lambda expressions. Each unsolved
+  -- existential becomes a forall binder.
+  unsolvedExistentials <- Ctx.unsolvedExistentials <$> CtxState.getCtx
+  pure $ Ctx.substCtxInType finalCtx tipe `generalizedOver` unsolvedExistentials
+
+generalizedOver :: Tipe -> [Var] -> Tipe
+generalizedOver = foldr TForall
 
 typeSynth :: Expr -> TC Tipe
 typeSynth = goSynth
@@ -80,8 +87,7 @@ typeSynth = goSynth
       let unsolvedExistentials = droppedEntries & Maybe.mapMaybe \case
             Right (v, Ctx.IsExistential Nothing) -> Just v
             _ -> Nothing
-      let generalizedFunType = foldr TForall funType unsolvedExistentials
-      pure generalizedFunType
+      pure (funType `generalizedOver` unsolvedExistentials)
 
 typeCheck :: Expr -> Tipe -> TC ()
 typeCheck = goCheck

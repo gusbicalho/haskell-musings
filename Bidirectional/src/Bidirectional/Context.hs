@@ -5,11 +5,12 @@
 module Bidirectional.Context where
 
 import Bidirectional.Language
+import Bidirectional.ReportTypeErrors
 import Data.Foldable qualified as F
+import Data.Function ((&))
 import Data.Maybe qualified as Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
-import Bidirectional.ReportTypeErrors
 
 --------------------------------------------------------------------------------
 -- Contexts
@@ -110,6 +111,12 @@ definedBefore MkCtx{ctxBindings} varBefore varAfter =
     -- We didn't find either var yet, so we keep going
     | otherwise = acc
 
+unsolvedExistentials :: Ctx -> [Var]
+unsolvedExistentials MkCtx{ctxBindings} =
+  ctxBindings & Maybe.mapMaybe \case
+    Right (v, IsExistential Nothing) -> Just v
+    _ -> Nothing
+
 dropEntriesUntilBinding ::
   Var ->
   Ctx ->
@@ -156,6 +163,13 @@ dropEntriesUntilMarkerOf_ target = go
 
 --------------------------------------------------------------------------------
 -- Application of contexts
+
+defaultAllUnsolvedExistentials :: ReportTypeErrors m => Mono -> Ctx -> m Ctx
+defaultAllUnsolvedExistentials solution ctx =
+  F.foldlM
+    (\ctx' var -> solveExistential var solution ctx')
+    ctx
+    (unsolvedExistentials ctx)
 
 substCtxInType :: Ctx -> Tipe -> Tipe
 substCtxInType ctx = go
@@ -304,7 +318,7 @@ articulateExistential target newVars solution ctx
         extendedCtxPrefix <- F.foldlM (flip bindOpenExistential) ctxPrefix newVars
         bindSolvedExistential target solution extendedCtxPrefix
  where
-  unknownVariableError :: ReportTypeErrors m =>  m x
+  unknownVariableError :: ReportTypeErrors m => m x
   unknownVariableError = typeError ["Cannot instantiate unknown variable", ind1 target]
 
 operateOnBindingHole ::

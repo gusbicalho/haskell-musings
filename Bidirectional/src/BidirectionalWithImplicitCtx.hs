@@ -28,6 +28,10 @@ runTC = Except.runExcept . FreshVar.runFreshT . CtxState.evalCtx Ctx.emptyCtx
 typeComplete :: Expr -> Either String Tipe
 typeComplete expr = runTC do
   tipe <- typeSynth expr
+  -- The unsolved existential variables at this point are essentially "unused"
+  -- types variables - values that are just passed around, there are no
+  -- constraints on them. They are black boxes, so we can just set them to Unit.
+  CtxState.defaultAllUnsolvedExistentials Ctx.MonoUnit
   finalCtx <- CtxState.getCtx
   pure $ Ctx.substCtxInType finalCtx tipe
 
