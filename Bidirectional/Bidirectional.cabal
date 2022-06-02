@@ -21,6 +21,7 @@ library
     Bidirectional.ReportTypeErrors
     Bidirectional.Subtyping
     BidirectionalWithImplicitCtx
+    Examples
   build-depends:
     base ^>=4.16.1.0,
     containers,

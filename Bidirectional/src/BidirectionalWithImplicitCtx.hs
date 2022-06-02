@@ -14,61 +14,26 @@ import Bidirectional.Subtyping (isSubtypeOf)
 import Control.Monad.Trans.Except (Except)
 import Control.Monad.Trans.Except qualified as Except
 
+--------------------------------------------------------------------------------
 -- Effects stack
-type TC = FreshVar.FreshT (Except String)
+
+type TC = CtxState.CtxStateT (FreshVar.FreshT (Except String))
 
 runTC :: TC a -> Either String a
-runTC = Except.runExcept . FreshVar.runFreshT
-
---------------------------------------------------------------------------------
--- Examples
-
-expectRight :: TC a -> a
-expectRight = either error id . runTC
-
-test_id :: Expr
-test_id = ELam "x" (EVar (NamedVar "x"))
-
-test_const :: Expr
-test_const = ELam "x" (ELam "y" (EVar (NamedVar "x")))
-
-test_constUnit :: Expr
-test_constUnit = EApply test_const EUnit
-
-{-
-
->>> expectRight . typeComplete $ EApply (ELam "f" (EApply (EVar (NamedVar "f")) EUnit)) test_id
-TUnit
-
->>> expectRight . typeComplete $ test_id
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TVar (FreshVar "->I\8658_arg" 0))
-
->>> expectRight . typeComplete $ EAnno test_id (TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T"))))
-TForall "T" (TFunction (TVar (NamedVar "T")) (TVar (NamedVar "T")))
-
->>> expectRight . typeComplete $ test_const
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) (TFunction (TVar (FreshVar "InstRArr_arg" 4)) (TVar (FreshVar "->I\8658_arg" 0)))
-
->>> expectRight . typeComplete $ ELam "x" EUnit
-TFunction (TVar (FreshVar "->I\8658_arg" 0)) TUnit
-
->>> expectRight . typeComplete $ test_constUnit
-TFunction (TVar (FreshVar "InstRArr_arg" 4)) TUnit
-
--}
+runTC = Except.runExcept . FreshVar.runFreshT . CtxState.evalCtx Ctx.emptyCtx
 
 --------------------------------------------------------------------------------
 -- Type checking
 
-typeComplete :: Expr -> TC Tipe
-typeComplete expr = do
-  (tipe, finalCtx) <- CtxState.runCtx Ctx.emptyCtx (typeSynth expr)
+typeComplete :: Expr -> Either String Tipe
+typeComplete expr = runTC do
+  tipe <- typeSynth expr
+  finalCtx <- CtxState.getCtx
   pure $ Ctx.substCtxInType finalCtx tipe
 
-typeSynth :: Expr -> CtxState.CtxStateT TC Tipe
+typeSynth :: Expr -> TC Tipe
 typeSynth = goSynth
  where
-  goSynth :: Expr -> CtxState.CtxStateT TC Tipe
   goSynth = \case
     -- Var
     EVar varName ->
@@ -101,10 +66,9 @@ typeSynth = goSynth
       CtxState.dropEntriesUntilBinding_ argVar
       pure (TFunction argType retType)
 
-typeCheck :: Expr -> Tipe -> CtxState.CtxStateT TC ()
+typeCheck :: Expr -> Tipe -> TC ()
 typeCheck = goCheck
  where
-  goCheck :: Expr -> Tipe -> CtxState.CtxStateT TC ()
   -- ForallI
   goCheck expr (TForall univName univType) = do
     let forallVar = NamedVar univName
@@ -130,10 +94,9 @@ typeCheck = goCheck
           , ind [show expr]
           ]
 
-typeApply :: Expr -> Tipe -> Expr -> CtxState.CtxStateT TC Tipe
+typeApply :: Expr -> Tipe -> Expr -> TC Tipe
 typeApply overallApplyExpr = goApply
  where
-  goApply :: Tipe -> Expr -> CtxState.CtxStateT TC Tipe
   -- ForallApp
   goApply (TForall univName univType) argument = do
     CtxState.bindOpenExistential (NamedVar univName)

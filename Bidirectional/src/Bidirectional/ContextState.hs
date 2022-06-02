@@ -4,6 +4,7 @@ module Bidirectional.ContextState (
   CtxStateT,
   runCtx,
   execCtx,
+  evalCtx,
   getCtx,
   onCtx,
   withCtx,
@@ -91,6 +92,9 @@ runCtx = flip StateT.runStateT
 
 execCtx :: Monad m => Ctx -> CtxStateT m () -> m Ctx
 execCtx = flip StateT.execStateT
+
+evalCtx :: Monad m => Ctx -> CtxStateT m a -> m a
+evalCtx = flip StateT.evalStateT
 
 getCtx :: Monad m => CtxStateT m Ctx
 getCtx = StateT.get
