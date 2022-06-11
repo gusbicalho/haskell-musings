@@ -1,0 +1,25 @@
+cabal-version: 3.0
+name: Existential
+version: 0.1.0.0
+license: NONE
+author: Gustavo Bicalho
+maintainer: gusbicalho@gmail.com
+synopsis:
+  Implementation based on https://dl.acm.org/doi/pdf/10.1145/3473569
+
+library
+  hs-source-dirs: src
+  default-language: GHC2021
+  ghc-options:
+    -Wall -Wcompat
+  exposed-modules:
+    Existential.Fresh
+    Existential.ReportTypeErrors
+    Existential.Surface.Language
+    Existential.Surface.Typechecking
+    Existential.Surface.Unification
+  build-depends:
+    base ^>=4.16.1.0,
+    containers,
+    transformers,
+    unification-fd

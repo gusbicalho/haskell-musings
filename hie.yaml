@@ -12,6 +12,9 @@ cradle:
     - path: "./EarlyDays/src"
       component: "lib:early-days"
 
+    - path: "./Existential/src"
+      component: "lib:Existential"
+
     - path: "./Freedoms/src"
       component: "lib:Freedoms"
 
