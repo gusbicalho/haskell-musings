@@ -1,5 +1,8 @@
 cradle:
   cabal:
+    - path: "./Achieve/src"
+      component: "lib:Achieve"
+
     - path: "./AlgebraDrivenDesign/src"
       component: "lib:algebra-driven-design"
 

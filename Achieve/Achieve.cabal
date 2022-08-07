@@ -1,0 +1,25 @@
+cabal-version:      3.0
+name:               Achieve
+version:            0.1.0.0
+synopsis:
+
+license:            NONE
+author:             Gustavo Bicalho
+maintainer:         gusbicalho@gmail.com
+
+library
+    exposed-modules:  Achieve, Example
+    -- other-modules:
+    build-depends:
+      base ^>=4.16.1, text, containers, multiset
+    hs-source-dirs:   src
+    default-language: GHC2021
+
+executable Achieve
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.16.1.0,
+        Achieve
+
+    hs-source-dirs:   app
+    default-language: Haskell2010
