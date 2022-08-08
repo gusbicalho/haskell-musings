@@ -58,7 +58,6 @@ robson :: Player
 robson =
   MkPlayer
     { playerId = "robson"
-    , playerRole = experiencedDev
     , goal = restAndVest
     , inventory =
         MkInventory
@@ -83,7 +82,6 @@ cleiton :: Player
 cleiton =
   MkPlayer
     { playerId = "cleiton"
-    , playerRole = juniorDev
     , goal = madReps
     , inventory =
         MkInventory
@@ -118,22 +116,6 @@ restAndVest =
         [ ("cash", AtLeast 30)
         , ("stress", AtMost 5)
         ]
-    }
-
--- Roles
-
-juniorDev :: PlayerRole
-juniorDev =
-  MkPlayerRole
-    { name = "junior dev"
-    , specialActions = []
-    }
-
-experiencedDev :: PlayerRole
-experiencedDev =
-  MkPlayerRole
-    { name = "experienced dev"
-    , specialActions = []
     }
 
 -- Assets

@@ -48,7 +48,6 @@ type Opportunities = MultiSet Asset
 
 data Player = MkPlayer
   { playerId :: PlayerId
-  , playerRole :: PlayerRole
   , goal :: Goal
   , inventory :: Inventory
   }
@@ -66,12 +65,6 @@ newtype ActionId = MkActionId Text
 
 getActionId :: ActionId -> Text
 getActionId (MkActionId t) = t
-
-data PlayerRole = MkPlayerRole
-  { name :: Text
-  , specialActions :: Set ActionId
-  }
-  deriving stock (Eq, Ord, Show)
 
 data Goal = MkGoal
   { name :: Text
@@ -115,8 +108,7 @@ getAward (MkAward t) = t
 
 describeGame :: Game -> Text
 describeGame game =
-  renderLayout
-    [board, Line "", todo]
+  renderLayout $ Group [board, Line "", todo]
  where
   ind = Ind "  "
   board =
@@ -136,7 +128,7 @@ describeGame game =
     Line $ (T.pack $ show num) <> " " <> award
   player (p :: Player) =
     Group
-      [ Line $ (getPlayerId p.playerId) <> " - " <> p.playerRole.name
+      [ Line $ getPlayerId p.playerId
       , ind [inventory p.inventory]
       , ""
       ]
@@ -156,10 +148,6 @@ describeGame game =
         [ Line $ "Next player: " <> getPlayerId nextPlayerId
         , "Actions:"
         , ind (action <$> Set.toAscList game.standardActions)
-        , ind do
-            player <- F.toList $ Map.lookup nextPlayerId game.board.players
-            specialAction <- F.toList player.playerRole.specialActions
-            pure (action specialAction)
         ]
   action actionId =
     Group do
@@ -174,8 +162,8 @@ data Layout
 instance IsString Layout where
   fromString = Line . T.pack
 
-renderLayout :: [Layout] -> Text
-renderLayout = goAll ""
+renderLayout :: Layout -> Text
+renderLayout = goEach ""
  where
   goAll ind layouts = T.concat (goEach ind <$> layouts)
   goEach ind (Line text) = ind <> text <> "\n"
