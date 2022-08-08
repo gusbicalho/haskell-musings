@@ -6,6 +6,8 @@
 module Example (main) where
 
 import Achieve
+import Achieve.Describe (describeGame)
+import Data.Function ((&))
 import Data.Map qualified as Map
 import Data.MultiSet qualified as MultiSet
 import Data.Set qualified as Set
@@ -39,6 +41,7 @@ board =
           [ robson
           , cleiton
           ]
+    , groupAwards = []
     , opportunities =
         MultiSet.fromList
           [ openSourceContribution
@@ -53,49 +56,24 @@ board =
         , openSourceContribution
         ]
     }
+    & playerAchieves "robson" rsus
+    & playerAchieves "robson" projectDelivered
+    & playerAchieves "robson" projectDelivered
+    & playerAchieves "robson" openSourceContribution
+    & playerAchieves "cleiton" projectDelivered
+    & playerAchieves "cleiton" eoyBonus
 
 robson :: Player
 robson =
-  MkPlayer
-    { playerId = "robson"
-    , goal = restAndVest
-    , inventory =
-        MkInventory
-          { attention = MkAttention 3
-          , annoyedAt =
-              Set.fromList
-                [ "cleiton"
-                ]
-          , goodwillFor =
-              MultiSet.fromList []
-          , assets =
-              MultiSet.fromList
-                [ rsus
-                , projectDelivered
-                , projectDelivered
-                , openSourceContribution
-                ]
-          }
-    }
+  newPlayer "robson" restAndVest
+    & addEnergy (MkEnergy 3)
+    & becomeAnnoyedAt "cleiton"
 
 cleiton :: Player
 cleiton =
-  MkPlayer
-    { playerId = "cleiton"
-    , goal = madReps
-    , inventory =
-        MkInventory
-          { attention = MkAttention 5
-          , annoyedAt = mempty
-          , goodwillFor =
-              MultiSet.fromList ["robson"]
-          , assets =
-              MultiSet.fromList
-                [ eoyBonus
-                , projectDelivered
-                ]
-          }
-    }
+  newPlayer "cleiton" madReps
+    & addEnergy (MkEnergy 5)
+    & incGoodwillFrom "robson"
 
 -- Goals
 madReps :: Goal
@@ -118,39 +96,50 @@ restAndVest =
         ]
     }
 
--- Assets
+-- Achievements
 
-eoyBonus :: Asset
+eoyBonus :: Achievement
 eoyBonus =
-  MkAsset
+  MkAchievement
     { name = "End-of-Year Bonus"
-    , awards = [("cash", 5)]
+    , groupAwards = []
+    , playerAwards = [("cash", 5)]
+    , cost = MkEnergy 5
     }
 
-rsus :: Asset
+rsus :: Achievement
 rsus =
-  MkAsset
+  MkAchievement
     { name = "RSU Grant"
-    , awards = [("cash", 10)]
+    , groupAwards = []
+    , playerAwards = [("cash", 10)]
+    , cost = MkEnergy 5
     }
 
-openSourceContribution :: Asset
+openSourceContribution :: Achievement
 openSourceContribution =
-  MkAsset
+  MkAchievement
     { name = "Open Source Contribution"
-    , awards =
+    , groupAwards = []
+    , playerAwards =
         [ ("industry reputation", 2)
         , ("stress", 1)
         ]
+    , cost = MkEnergy 2
     }
 
-projectDelivered :: Asset
+projectDelivered :: Achievement
 projectDelivered =
-  MkAsset
+  MkAchievement
     { name = "Project Delivered"
-    , awards =
+    , groupAwards =
+        [ ("company reputation", 1)
+        , ("kpi", 1)
+        ]
+    , playerAwards =
         [ ("cash", 1)
         , ("company reputation", 1)
         , ("stress", 1)
         ]
+    , cost = MkEnergy 2
     }

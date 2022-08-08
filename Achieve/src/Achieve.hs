@@ -9,6 +9,7 @@
 module Achieve where
 
 import Data.Foldable qualified as F
+import Data.Function ((&))
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.MultiSet (MultiSet)
@@ -34,17 +35,12 @@ data Action = MkAction
 
 data GameBoard = MkGameBoard
   { opportunities :: Opportunities
+  , groupAwards :: Map Award Int
   , players :: Map PlayerId Player
-  , deck :: [Asset]
+  , deck :: [Achievement]
   }
 
-playersList :: [Player] -> Map PlayerId Player
-playersList = Map.fromList . fmap (\p -> (p.playerId, p))
-
-actionsList :: [Action] -> Map ActionId Action
-actionsList = Map.fromList . fmap (\p -> (p.actionId, p))
-
-type Opportunities = MultiSet Asset
+type Opportunities = MultiSet Achievement
 
 data Player = MkPlayer
   { playerId :: PlayerId
@@ -52,19 +48,13 @@ data Player = MkPlayer
   , inventory :: Inventory
   }
 
-newtype PlayerId = MkPlayerId Text
+newtype PlayerId = MkPlayerId {get :: Text}
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString)
 
-getPlayerId :: PlayerId -> Text
-getPlayerId (MkPlayerId t) = t
-
-newtype ActionId = MkActionId Text
+newtype ActionId = MkActionId {get :: Text}
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString)
-
-getActionId :: ActionId -> Text
-getActionId (MkActionId t) = t
 
 data Goal = MkGoal
   { name :: Text
@@ -79,93 +69,142 @@ data Requirement
   deriving stock (Eq, Ord, Show)
 
 data Inventory = MkInventory
-  { attention :: Attention
+  { energy :: Energy
   , annoyedAt :: Set PlayerId
-  , goodwillFor :: MultiSet PlayerId
-  , assets :: MultiSet Asset
-  }
-
-newtype Attention = MkAttention Word
-  deriving stock (Eq, Ord, Show)
-
-getAttention :: Attention -> Word
-getAttention (MkAttention t) = t
-
-data Asset = MkAsset
-  { name :: Text
+  , goodwillFrom :: MultiSet PlayerId
   , awards :: Map Award Int
+  , achievements :: MultiSet AchievementName
+  }
+
+newtype Energy = MkEnergy {get :: Word}
+  deriving stock (Eq, Ord, Show)
+
+data Achievement = MkAchievement
+  { name :: AchievementName
+  , playerAwards :: Map Award Int
+  , groupAwards :: Map Award Int
+  , cost :: Energy
   }
   deriving stock (Eq, Ord, Show)
 
-newtype Award = MkAward Text
+newtype AchievementName = MkAchievementName {get :: Text}
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString)
 
-getAward :: Award -> Text
-getAward (MkAward t) = t
+newtype Award = MkAward {get :: Text}
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
 
--- Describe the game
+-- Helpers
 
-describeGame :: Game -> Text
-describeGame game =
-  renderLayout $ Group [board, Line "", todo]
- where
-  ind = Ind "  "
-  board =
-    Group
-      [ Group (player <$> Map.elems game.board.players)
-      , "Opportunities:"
-      , ind (assets <$> MultiSet.toAscOccurList game.board.opportunities)
-      , ""
-      , Line $ "Deck: " <> T.pack (show $ length game.board.deck) <> " cards"
-      ]
-  assets (asset, count) =
-    Group . concat . replicate count $
-      [ Line $ asset.name
-      , ind (describeAward <$> Map.toAscList asset.awards)
-      ]
-  describeAward (MkAward award, num) =
-    Line $ (T.pack $ show num) <> " " <> award
-  player (p :: Player) =
-    Group
-      [ Line $ getPlayerId p.playerId
-      , ind [inventory p.inventory]
-      , ""
-      ]
-  inventory i =
-    Group
-      [ Line $ "Attention: " <> (T.pack . show $ getAttention i.attention)
-      , Line $ "Annoyed at " <> (T.intercalate ", " . map getPlayerId $ Set.toAscList i.annoyedAt)
-      , Line $ "Goodwill for:"
-      , ind ((\(MkPlayerId pid, n) -> Line $ pid <> ": " <> T.pack (show n)) <$> MultiSet.toOccurList i.goodwillFor)
-      , "Assets:"
-      , ind (assets <$> MultiSet.toAscOccurList i.assets)
-      ]
-  todo = case game.playerOrder of
-    [] -> Group []
-    nextPlayerId : _ ->
-      Group
-        [ Line $ "Next player: " <> getPlayerId nextPlayerId
-        , "Actions:"
-        , ind (action <$> Set.toAscList game.standardActions)
-        ]
-  action actionId =
-    Group do
-      action <- F.toList (Map.lookup actionId game.actions)
-      [Line (getActionId action.actionId), ind [Line action.description]]
+newPlayer :: PlayerId -> Goal -> Player
+newPlayer playerId goal =
+  MkPlayer
+    { playerId
+    , goal
+    , inventory =
+        MkInventory
+          { energy = MkEnergy 0
+          , annoyedAt = mempty
+          , goodwillFrom = mempty
+          , awards = mempty
+          , achievements = mempty
+          }
+    }
 
-data Layout
-  = Line Text
-  | Group [Layout]
-  | Ind Text [Layout]
+playersList :: [Player] -> Map PlayerId Player
+playersList = Map.fromList . fmap (\p -> (p.playerId, p))
 
-instance IsString Layout where
-  fromString = Line . T.pack
+actionsList :: [Action] -> Map ActionId Action
+actionsList = Map.fromList . fmap (\p -> (p.actionId, p))
 
-renderLayout :: Layout -> Text
-renderLayout = goEach ""
- where
-  goAll ind layouts = T.concat (goEach ind <$> layouts)
-  goEach ind (Line text) = ind <> text <> "\n"
-  goEach ind (Group layouts) = goAll ind layouts
-  goEach ind (Ind addInd layouts) = goAll (ind <> addInd) layouts
+-- Basic operations
+
+addEnergy :: Energy -> Player -> Player
+addEnergy energy player@MkPlayer{inventory} =
+  player
+    { inventory =
+        inventory
+          { energy = MkEnergy $ player.inventory.energy.get + energy.get
+          }
+    }
+
+spendEnergy :: Energy -> Player -> Player
+spendEnergy energy player@MkPlayer{inventory} =
+  player
+    { inventory =
+        inventory
+          { energy = MkEnergy $ player.inventory.energy.get + energy.get
+          }
+    }
+
+becomeAnnoyedAt :: PlayerId -> Player -> Player
+becomeAnnoyedAt playerId player =
+  player
+    { inventory =
+        player.inventory
+          { annoyedAt = Set.insert playerId player.inventory.annoyedAt
+          }
+    }
+
+incGoodwillFrom :: PlayerId -> Player -> Player
+incGoodwillFrom playerId player =
+  player
+    { inventory =
+        player.inventory
+          { goodwillFrom = MultiSet.insert playerId player.inventory.goodwillFrom
+          }
+    }
+
+overPlayer :: PlayerId -> (Player -> Player) -> GameBoard -> GameBoard
+overPlayer playerId f board =
+  board{players = Map.adjust f playerId board.players}
+
+grantGroupAwards :: Map Award Int -> GameBoard -> GameBoard
+grantGroupAwards awards board =
+  board
+    { groupAwards = Map.unionWith (+) board.groupAwards awards
+    , deck = board.deck
+    }
+
+grantPlayerAwards :: Map Award Int -> Player -> Player
+grantPlayerAwards awards player =
+  player
+    { inventory =
+        player.inventory
+          { awards = Map.unionWith (+) player.inventory.awards awards
+          }
+    }
+
+grantPlayerAchievement :: Achievement -> Player -> Player
+grantPlayerAchievement achievement player =
+  player
+    { inventory =
+        player.inventory
+          { achievements = MultiSet.insert achievement.name player.inventory.achievements
+          }
+    }
+    & grantPlayerAwards achievement.playerAwards
+
+-- High level ops
+
+playerAchieves :: PlayerId -> Achievement -> GameBoard -> GameBoard
+playerAchieves playerId achievement board =
+  board
+    & grantGroupAwards achievement.groupAwards
+    & overPlayer playerId (grantPlayerAchievement achievement)
+
+-- playerTakesOpportunity
+-- If player has enough energy, they spend it to pay the cost of an
+-- opportunity on the board. The opportunity gets removed, and playerAchieves
+-- that Achievement.
+
+-- playerGetsHelpFrom
+-- Player A takes 1 energy from Player B, which A must spend in this turn.
+-- A cannot do this if B is Annoyed at A.
+-- If Player A has Goodwill from B, they may spend 1 goodwill.
+-- If they don't or can't, B becomes Annoyed at A.
+
+-- playerForgives
+-- If Player A is Annoyed at B, A can stop being Annoyed at B and get 1
+-- Goodwill from B.

@@ -8,7 +8,10 @@ author:             Gustavo Bicalho
 maintainer:         gusbicalho@gmail.com
 
 library
-    exposed-modules:  Achieve, Example
+    exposed-modules:
+      Achieve,
+      Achieve.Describe,
+      Example
     -- other-modules:
     build-depends:
       base ^>=4.16.1, text, containers, multiset
