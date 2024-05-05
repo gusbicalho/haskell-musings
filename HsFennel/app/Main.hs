@@ -59,4 +59,5 @@ registerHaskellModule =
       , Lua.moduleFields = []
       , Lua.moduleFunctions = [factorial]
       , Lua.moduleOperations = []
+      , Lua.moduleTypeInitializers = []
       }

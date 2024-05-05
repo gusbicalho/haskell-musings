@@ -18,7 +18,7 @@ library
     LambdaPi.SimplyTyped.ByTheBook
     LambdaPi.SimplyTyped.Mine
   build-depends:
-    base ^>=4.16.1.0
+    base < 5
   ghc-options:
     -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns
     -Wredundant-constraints -Wno-name-shadowing

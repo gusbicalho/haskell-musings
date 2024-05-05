@@ -24,6 +24,6 @@ library
     BidirectionalWithPolyLam
     Examples
   build-depends:
-    base ^>=4.16.1.0,
+    base < 5,
     containers,
     transformers

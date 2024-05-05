@@ -13,7 +13,7 @@ library
     Henk.PTS.Fw
     Henk.PTS.SimplyTyped
   build-depends:
-    base ^>=4.16.1.0
+    base < 5
   ghc-options:
     -Wall -Wcompat
   hs-source-dirs: src

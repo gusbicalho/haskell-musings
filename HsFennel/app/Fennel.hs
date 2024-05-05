@@ -4,13 +4,13 @@
 module Fennel (register, repl) where
 
 import Data.ByteString (ByteString)
-import Data.FileEmbed (embedFile)
+import Data.FileEmbed (embedFileRelative)
 import Data.Functor (void)
 import HsLua (Lua)
 import HsLua qualified as Lua
 
 fennelLua :: ByteString
-fennelLua = $(embedFile "resources/fennel.lua")
+fennelLua = $(embedFileRelative "resources/fennel.lua")
 
 register :: Lua ()
 register = do
