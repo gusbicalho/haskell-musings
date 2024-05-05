@@ -17,6 +17,7 @@ library
   exposed-modules:
       Cont
       FirstClassModules
+      Hanoi
       NFold
       NFoldUsage
       Metaphor
